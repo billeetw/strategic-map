@@ -5,158 +5,132 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>一起出來玩 | 2026 數位戰略地圖</title>
 </head>
-<body>
+<body class="bg-black text-white">
+
   <div class="top-bar">
     📢 <strong>數位戰略地圖</strong> | 透過紫微演算探尋 2026 年度佈局機遇
   </div>
 
   <div class="p-4 md:p-8">
-    <header class="max-w-5xl mx-auto mb-8 border-b border-zinc-800 pb-4 flex justify-between items-end gap-4">
+    <header class="max-w-5xl mx-auto mb-8 border-b border-zinc-800 pb-4 flex justify-between items-end">
       <div>
         <h1 class="text-3xl font-black text-red-600 tracking-widest uppercase">2026 Strategic Map</h1>
-        <p class="text-[10px] text-zinc-500 uppercase tracking-[0.4em] mt-1">
-          Akashic Engine v9.1 - Public Edition
-        </p>
+        <p class="text-[10px] text-zinc-500 uppercase tracking-[0.4em] mt-1">Akashic Engine v9.0 - Public Edition</p>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button id="btn-reset"
-          type="button"
-          class="hidden px-3 py-2 text-[11px] tracking-[.2em] uppercase border border-zinc-700 hover:border-zinc-500 transition"
-          onclick="resetToInput()">
-          重新輸入
+      <div class="flex gap-2 items-center">
+        <button id="btn-reset" onclick="resetToInput()" class="hidden px-3 py-2 border border-zinc-800 hover:border-zinc-600 text-[11px]">
+          返回輸入
         </button>
-        <button id="btn-recalc"
-          type="button"
-          class="hidden px-3 py-2 text-[11px] tracking-[.2em] uppercase bg-red-700 hover:bg-red-600 transition"
-          onclick="deployTacticalMap()">
+        <button id="btn-recalc" onclick="deployTacticalMap()" class="hidden px-3 py-2 bg-red-700 hover:bg-red-600 text-[11px] font-black">
           重新演算
         </button>
       </div>
     </header>
 
-    <!-- INPUT -->
-    <section id="input-section" class="max-w-xl mx-auto panel p-6 mb-10">
+    <!-- Error -->
+    <div id="error-box" class="hidden max-w-xl mx-auto mb-6 px-4 py-3 border border-red-800 bg-red-950/40 text-red-200 text-[12px]"></div>
+
+    <!-- Input -->
+    <section id="input-section" class="max-w-xl mx-auto bg-zinc-900/40 p-6 border border-zinc-800 mb-10">
       <h2 class="text-xs font-bold mb-6 text-zinc-400 border-l-2 border-red-600 pl-3 uppercase">
         STEP 1: 同步個人演算數據
       </h2>
 
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-[10px] text-zinc-500 mb-1" for="dob">西元出生日期</label>
-          <input type="date" id="dob" value="1995-01-01" />
+          <label class="block text-[10px] text-zinc-500 mb-1">西元出生日期</label>
+          <input type="date" id="dob" value="1995-01-01" class="w-full" />
         </div>
 
         <div>
-          <label class="block text-[10px] text-zinc-500 mb-1" for="tob">出生時間</label>
-          <input type="time" id="tob" value="12:00" />
+          <label class="block text-[10px] text-zinc-500 mb-1">出生時間</label>
+          <input type="time" id="tob" value="12:00" class="w-full" />
         </div>
 
-        <div class="col-span-2 md:col-span-1">
-          <label class="block text-[10px] text-zinc-500 mb-1" for="gender">性別</label>
-          <select id="gender">
-            <option value="male" selected>男</option>
+        <div>
+          <label class="block text-[10px] text-zinc-500 mb-1">性別</label>
+          <select id="gender" class="w-full bg-black border border-zinc-800 text-white text-[12px] p-2">
+            <option value="male">男</option>
             <option value="female">女</option>
           </select>
         </div>
 
-        <div class="col-span-2 md:col-span-1">
-          <label class="block text-[10px] text-zinc-500 mb-1" for="calendar">曆法</label>
-          <select id="calendar">
-            <option value="gregorian" selected>公曆（建議）</option>
-            <option value="lunar">農曆（由套件處理）</option>
+        <div>
+          <label class="block text-[10px] text-zinc-500 mb-1">曆法</label>
+          <select id="calendar" class="w-full bg-black border border-zinc-800 text-white text-[12px] p-2">
+            <option value="gregorian">西曆（Solar）</option>
+            <option value="lunar">農曆（Lunar）</option>
           </select>
         </div>
       </div>
 
-      <div class="mt-4 hint">
-        ＊時間會換算為「時辰」(每 2 小時一段)。若你出生時間落在換日／換時辰邊界（例如 23:00、01:00），建議試著前後各差 30 分鐘重算比較。
-      </div>
-
-      <div id="error-box" class="hidden mt-5 p-3 border border-red-900 bg-red-950/30 text-red-200 text-xs leading-relaxed"></div>
-
-      <button
-        type="button"
-        onclick="deployTacticalMap()"
-        class="w-full bg-red-700 hover:bg-red-600 py-4 font-black mt-8 text-sm tracking-[.3em] transition-all uppercase">
+      <button onclick="deployTacticalMap()" class="w-full bg-red-700 hover:bg-red-600 py-4 font-black mt-8 text-sm tracking-[.3em] transition-all uppercase">
         啟動戰略演算
       </button>
     </section>
 
-    <!-- RESULT -->
+    <!-- Result -->
     <section id="result-section" class="hidden max-w-7xl mx-auto">
       <div class="flex flex-col xl:flex-row gap-8">
+
+        <!-- Left: Chart -->
         <div class="xl:w-2/3">
-          <div class="chart-grid" id="map-root" aria-label="紫微戰略地圖">
+          <div class="chart-grid" id="map-root">
             <div class="center-hole text-center">
               <div id="bureau-text" class="font-black text-3xl text-[#D4AF37]">--局</div>
               <div id="destiny-text" class="text-zinc-500 text-[10px] mt-2 font-mono uppercase">Analyzing...</div>
-
               <div class="mt-4 px-3 py-1 bg-zinc-900 border border-zinc-700 text-zinc-400 text-[9px] font-bold">
                 2026 丙午流年：四化疊加模式
-              </div>
-
-              <div class="mt-2 text-[10px] text-zinc-500">
-                點擊任一宮位可查看詳細解構
               </div>
             </div>
             <svg id="svg-overlay"></svg>
           </div>
-
-          <div class="mt-4 panel p-4">
-            <div class="flex flex-wrap items-center gap-3 text-[11px] text-zinc-400">
-              <div class="flex items-center gap-2">
-                <span class="inline-block w-3 h-3 rounded-sm" style="background: var(--ukg-red)"></span>
-                <span>本命四化</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="inline-block w-3 h-3 rounded-sm" style="background:#1e40af"></span>
-                <span>2026 流年四化</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="inline-block w-3 h-[2px]" style="background: var(--ukg-red)"></span>
-                <span>廉貞對沖線（參考壓力軸）</span>
-              </div>
-              <div class="ml-auto text-[10px] text-zinc-500 font-mono">
-                Render: Vite + npm ✅
-              </div>
-            </div>
-          </div>
         </div>
 
+        <!-- Right: Panels -->
         <div class="xl:w-1/3 space-y-6">
+
+          <!-- NEW: Profile summary -->
+          <div class="panel p-4">
+            <h3 class="text-[#D4AF37] font-black text-xs mb-3 uppercase">命格一分鐘摘要（人生/性格）</h3>
+            <div id="profile-summary" class="text-xs text-zinc-300 leading-relaxed">
+              <div class="text-zinc-500 text-[11px]">請先啟動演算。</div>
+            </div>
+          </div>
+
+          <!-- Strategy -->
           <div class="strategy-card">
             <h3 class="text-[#D4AF37] font-black text-sm mb-2 italic uppercase">年度核心戰略建議</h3>
-            <div class="panel p-4">
-              <h3 class="text-[#D4AF37] font-black text-xs mb-3 uppercase">命格一分鐘摘要（人生/性格）</h3>
-               <div id="profile-summary" class="text-xs text-zinc-300 leading-relaxed">
-               <div class="text-zinc-500 text-[11px]">請先啟動演算。</div>
-              </div>
-             </div>
             <p id="aphorism-text" class="text-xs leading-relaxed text-zinc-300"></p>
           </div>
 
+          <!-- Palace detail -->
           <div class="panel p-4">
-            <h3 class="text-[#D4AF37] font-black text-xs mb-4 uppercase">宮位情報（點擊盤面）</h3>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-[#D4AF37] font-black text-xs uppercase">宮位情報</h3>
+              <span class="text-[10px] text-zinc-500">點選任一宮位查看</span>
+            </div>
             <div id="palace-detail" class="text-xs text-zinc-300 leading-relaxed">
               <div class="text-zinc-500 text-[11px]">尚未選擇宮位。</div>
             </div>
           </div>
 
+          <!-- Monthly quests -->
           <div class="panel p-4">
-            <div class="flex items-center justify-between gap-2 mb-4">
-              <h3 class="text-[#D4AF37] font-black text-xs uppercase">流月戰略任務副本（12 章）</h3>
-              <button type="button"
-                onclick="scrollToTopQuests()"
-                class="text-[10px] text-zinc-400 hover:text-zinc-200 border border-zinc-700 px-2 py-1 transition">
-                回頂
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-[#D4AF37] font-black text-xs uppercase">流月戰略任務副本</h3>
+              <button onclick="scrollToTopQuests()" class="text-[10px] text-zinc-400 hover:text-zinc-200 underline">
+                回頂部
               </button>
             </div>
-            <div class="max-h-[360px] overflow-y-auto pr-2 custom-scrollbar" id="quest-list"></div>
+            <div class="max-h-[350px] overflow-y-auto pr-2 custom-scrollbar" id="quest-list"></div>
           </div>
+
         </div>
       </div>
     </section>
+
   </div>
 
   <script type="module" src="/src/main.js"></script>

@@ -8,10 +8,12 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "devDependencies": {
-    "vite": "^7.2.4"
-  },
   "dependencies": {
     "iztro": "^2.5.4"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0"
   }
 }

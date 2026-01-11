@@ -327,6 +327,9 @@ function deployTacticalMap() {
     `${toSafeText(chart.chineseDate)} 生 / 命主 ${toSafeText(chart.soul)}`;
 
   updateAnalysis(chart, lianZhenIdx);
+    const profileEl = document.getElementById("profile-summary");
+  if (profileEl) profileEl.innerHTML = buildProfileSummaryHTML(chart);
+
 
   // 預設選命宮
   const nominalIdx = chart.palaces.findIndex((p) => p.earthlyBranch === nominalBranch);

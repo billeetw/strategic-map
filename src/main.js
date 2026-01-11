@@ -3,6 +3,130 @@ import { astro } from "iztro";
 
 // 2026 丙午年四化：同機昌廉
 const SIHUA_2026 = { "天同": "祿", "天機": "權", "文昌": "科", "廉貞": "忌" };
+// ===== 人生/性格導向：四化白話 =====
+const HUA_MEANING_LIFE = {
+  "祿": "更容易得到支持、資源靠近你（舒服，但也可能變懶）",
+  "權": "主導感變強、責任上身、你會被推去做決定（也更容易累）",
+  "科": "更容易被看見與肯定，適合建立作品/口碑/信用",
+  "忌": "容易卡住或反覆，會戳到你的焦慮點（但也是最能長大的地方）",
+};
+
+// ===== 人生/性格導向：宮位白話（先做最重要幾個） =====
+const PALACE_MEANING_LIFE = {
+  "命": "你這個人最核心的性格與人生主題（做事本能）",
+  "福德": "你怎麼快樂、怎麼充電、內在安全感來源",
+  "疾厄": "壓力反應、耗損點、身心修復方式",
+  "夫妻": "親密關係互動模式、承諾與界線",
+  "交友": "人際圈與社交風格、你吸引什麼人、支持系統",
+  "官祿": "工作風格與角色感（也會影響自我價值）",
+  "財帛": "你對金錢/價值的信念、如何把能力變現",
+};
+
+// ===== 人生/性格導向：14 主星白話（天賦/陰影/需要/練習） =====
+const STAR_PROFILE = {
+  "紫微": { gift:"主心骨、格局感", shadow:"容易背太多、控制/責任過頭", need:"信任與授權", practice:"把『我扛』改成『我帶』" },
+  "天機": { gift:"洞察、策略、反應快", shadow:"想太多、焦慮、三心二意", need:"節奏與收斂", practice:"每次只做一件『最重要的事』" },
+  "太陽": { gift:"行動力、願意照亮別人", shadow:"逞強、怕示弱、過勞", need:"休息不等於退縮", practice:"把『被需要』改成『被尊重』" },
+  "武曲": { gift:"務實可靠、能扛績效", shadow:"太硬、情緒被壓住", need:"允許自己脆弱", practice:"先說感受，再談解法" },
+  "天同": { gift:"人緣、溫柔修復力", shadow:"逃避衝突、拖延", need:"界線與決斷", practice:"把『好好』改成『清楚』" },
+  "廉貞": { gift:"原則、魅力、重整能力", shadow:"黑白分明、糾結拉扯", need:"灰度與彈性", practice:"先問『我想要什麼』再談對錯" },
+  "天府": { gift:"穩、守成、資源整合", shadow:"怕變動、安逸", need:"適度冒險", practice:"每季做一次小幅更新" },
+  "太陰": { gift:"細膩、感受深、品味", shadow:"敏感內耗、悶", need:"被理解與安全感", practice:"把想法說出來，不要只放心裡" },
+  "貪狼": { gift:"企圖心、人脈、享受人生", shadow:"分心、過量", need:"排序與節制", practice:"先選一個主線，其餘當獎勵" },
+  "巨門": { gift:"思辨、抓問題核心", shadow:"挑剔、鑽牛角尖", need:"同理與降噪", practice:"先確認『我們同一隊』再討論" },
+  "天相": { gift:"公平、專業、協調", shadow:"怕得罪人、猶豫", need:"決策底線", practice:"設定原則：可談/不可談" },
+  "天梁": { gift:"保護力、貴人、風險控管", shadow:"太保守、說教", need:"允許享受", practice:"把『應該』換成『選擇』" },
+  "七殺": { gift:"果斷攻堅、破局", shadow:"太急、硬碰硬", need:"策略與耐心", practice:"先佈局再出手" },
+  "破軍": { gift:"改革、重啟勇氣", shadow:"衝動全砍、忽略成本", need:"收尾能力", practice:"改版要保留一條安全繩" },
+};
+
+function normalizePalaceName(name) {
+  return (name || "").replace("宮", "");
+}
+
+function starLineLife(starName) {
+  const p = STAR_PROFILE[starName];
+  if (!p) return `【${toSafeText(starName)}】（尚未建立白話）`;
+  return `【${toSafeText(starName)}】天賦：${p.gift}｜陰影：${p.shadow}｜需要：${p.need}｜練習：${p.practice}`;
+}
+
+function huaHintsLife(palace) {
+  const lines = [];
+  for (const s of (palace.majorStars || [])) {
+    const annual = SIHUA_2026[s.name];
+    const natal = s.lunarSihua;
+
+    if (natal && HUA_MEANING_LIFE[natal]) {
+      lines.push(`本命 ${s.name} 化${natal}：${HUA_MEANING_LIFE[natal]}`);
+    }
+    if (annual && HUA_MEANING_LIFE[annual]) {
+      lines.push(`2026 ${s.name} 化${annual}：${HUA_MEANING_LIFE[annual]}`);
+    }
+  }
+  return lines;
+}
+
+function buildLifeExplainHTML(palace) {
+  const key = normalizePalaceName(palace.name);
+  const meaning = PALACE_MEANING_LIFE[key] || "（此宮位人生意義待補）";
+
+  const majors = (palace.majorStars || []).map(s => s.name).slice(0, 3);
+  const starText = majors.length ? majors.map(starLineLife).join("<br/>") : "此宮主星較少：更建議看你在此領域的行為模式與四化提示。";
+
+  const hua = huaHintsLife(palace);
+  const huaText = hua.length
+    ? `- ${hua.join("<br/>- ")}`
+    : "（此宮今年沒有明顯四化標記，重點回到主星的天賦/陰影如何被你使用。）";
+
+  return `
+    <div class="mt-4 border-t border-zinc-800 pt-4">
+      <div class="text-[11px] text-zinc-400 mb-2">新手白話（人生/性格）</div>
+      <div class="text-[12px] leading-relaxed text-zinc-200">
+        <div class="mb-2">這是【${toSafeText(palace.name)}】：${meaning}</div>
+        <div class="mb-3">${starText}</div>
+        <div class="text-zinc-300">
+          <div class="text-[11px] text-zinc-400 mb-1">四化提示</div>
+          ${huaText}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildProfileSummaryHTML(chart) {
+  const nominalBranch = chart.earthlyBranchOfSoulPalace;
+
+  const getPalaceByKey = (k) =>
+    chart.palaces.find(p => normalizePalaceName(p.name) === k) || null;
+
+  const ming = chart.palaces.find(p => p.earthlyBranch === nominalBranch) || null;
+  const fud = getPalaceByKey("福德");
+  const jie = getPalaceByKey("疾厄");
+  const fuqi = getPalaceByKey("夫妻");
+  const friends = getPalaceByKey("交友");
+
+  const pickStars = (p) => (p?.majorStars || []).map(s => s.name).slice(0, 2).join("、") || "（無）";
+
+  const mingStars = pickStars(ming);
+  const fudStars = pickStars(fud);
+  const jieStars = pickStars(jie);
+
+  return `
+    <div class="text-zinc-200">
+      你的性格核心（命宮）：<span class="text-[#D4AF37] font-bold">${toSafeText(mingStars)}</span>
+    </div>
+
+    <div class="text-zinc-400 mt-2">快樂與安全感（福德）：${toSafeText(fudStars)}</div>
+    <div class="text-zinc-400 mt-1">壓力反應（疾厄）：${toSafeText(jieStars)}</div>
+    <div class="text-zinc-400 mt-1">關係模式（夫妻 / 交友）：${toSafeText(pickStars(fuqi))} ／ ${toSafeText(pickStars(friends))}</div>
+
+    <div class="mt-3 text-[11px] text-zinc-500 leading-relaxed">
+      讀盤順序（小白版）：命宮看「你怎麼做事」→ 福德看「你怎麼快樂」→ 疾厄看「你怎麼耗損」→ 夫妻/交友看「你怎麼連結」。
+      四化是今年在哪裡更容易舒服/卡住的提示。
+    </div>
+  `;
+}
+
 
 let _lastChart = null;
 let _lastLianZhenIdx = -1;

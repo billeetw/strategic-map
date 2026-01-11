@@ -3,6 +3,7 @@ import { astro } from "iztro";
 
 // 2026 丙午年四化：同機昌廉
 const SIHUA_2026 = { "天同": "祿", "天機": "權", "文昌": "科", "廉貞": "忌" };
+
 // ===== 人生/性格導向：四化白話 =====
 const HUA_MEANING_LIFE = {
   "祿": "更容易得到支持、資源靠近你（舒服，但也可能變懶）",
@@ -39,6 +40,38 @@ const STAR_PROFILE = {
   "七殺": { gift:"果斷攻堅、破局", shadow:"太急、硬碰硬", need:"策略與耐心", practice:"先佈局再出手" },
   "破軍": { gift:"改革、重啟勇氣", shadow:"衝動全砍、忽略成本", need:"收尾能力", practice:"改版要保留一條安全繩" },
 };
+
+let _lastChart = null;
+let _lastLianZhenIdx = -1;
+let _selectedPalaceIdx = -1;
+
+function showError(msg) {
+  const box = document.getElementById("error-box");
+  if (!box) return;
+  box.textContent = msg;
+  box.classList.remove("hidden");
+}
+function clearError() {
+  const box = document.getElementById("error-box");
+  if (!box) return;
+  box.textContent = "";
+  box.classList.add("hidden");
+}
+
+function toSafeText(v) {
+  return v === null || v === undefined ? "" : String(v);
+}
+
+// iztro timeIndex：0..12（含早/晚子）
+// - 00:00~00:59 → 0（早子）
+// - 23:00~23:59 → 12（晚子）
+// - 其餘每 2 小時一段：1..11
+function timeIndexFromInput(tob) {
+  const hour = parseInt((tob || "12:00").split(":")[0], 10);
+  if (hour === 0) return 0;
+  if (hour === 23) return 12;
+  return Math.floor((hour + 1) / 2);
+}
 
 function normalizePalaceName(name) {
   return (name || "").replace("宮", "");
@@ -94,12 +127,12 @@ function buildLifeExplainHTML(palace) {
 }
 
 function buildProfileSummaryHTML(chart) {
-  const nominalBranch = chart.earthlyBranchOfSoulPalace;
-
   const getPalaceByKey = (k) =>
     chart.palaces.find(p => normalizePalaceName(p.name) === k) || null;
 
-  const ming = chart.palaces.find(p => p.earthlyBranch === nominalBranch) || null;
+  // 命宮：優先用「宮名=命」找，避免抓錯（你之前出現（無）就是常見情況）
+  const ming = getPalaceByKey("命") || null;
+
   const fud = getPalaceByKey("福德");
   const jie = getPalaceByKey("疾厄");
   const fuqi = getPalaceByKey("夫妻");
@@ -127,62 +160,34 @@ function buildProfileSummaryHTML(chart) {
   `;
 }
 
-
-let _lastChart = null;
-let _lastLianZhenIdx = -1;
-let _selectedPalaceIdx = -1;
-
-function showError(msg) {
-  const box = document.getElementById("error-box");
-  box.textContent = msg;
-  box.classList.remove("hidden");
-}
-function clearError() {
-  const box = document.getElementById("error-box");
-  box.textContent = "";
-  box.classList.add("hidden");
-}
-
-function toSafeText(v) {
-  return v === null || v === undefined ? "" : String(v);
-}
-
-// iztro timeIndex：0..12（含早/晚子）
-// - 00:00~00:59 → 0（早子）
-// - 23:00~23:59 → 12（晚子）
-// - 其餘每 2 小時一段：1..11
-function timeIndexFromInput(tob) {
-  const hour = parseInt((tob || "12:00").split(":")[0], 10);
-  if (hour === 0) return 0;
-  if (hour === 23) return 12;
-  return Math.floor((hour + 1) / 2);
-}
-
 function resetToInput() {
-  document.getElementById("result-section").classList.add("hidden");
-  document.getElementById("input-section").classList.remove("hidden");
-  document.getElementById("btn-reset").classList.add("hidden");
-  document.getElementById("btn-recalc").classList.add("hidden");
+  document.getElementById("result-section")?.classList.add("hidden");
+  document.getElementById("input-section")?.classList.remove("hidden");
+  document.getElementById("btn-reset")?.classList.add("hidden");
+  document.getElementById("btn-recalc")?.classList.add("hidden");
   clearError();
 
   _lastChart = null;
   _lastLianZhenIdx = -1;
   _selectedPalaceIdx = -1;
 
-  document.getElementById("palace-detail").innerHTML =
-    `<div class="text-zinc-500 text-[11px]">尚未選擇宮位。</div>`;
+  const detail = document.getElementById("palace-detail");
+  if (detail) detail.innerHTML = `<div class="text-zinc-500 text-[11px]">尚未選擇宮位。</div>`;
+
+  const profile = document.getElementById("profile-summary");
+  if (profile) profile.innerHTML = `<div class="text-zinc-500 text-[11px]">請先啟動演算。</div>`;
 }
 
 function scrollToTopQuests() {
   const el = document.getElementById("quest-list");
-  el.scrollTop = 0;
+  if (el) el.scrollTop = 0;
 }
 
 function deployTacticalMap() {
   clearError();
 
-  const dob = document.getElementById("dob").value;
-  const tob = document.getElementById("tob").value;
+  const dob = document.getElementById("dob")?.value;
+  const tob = document.getElementById("tob")?.value;
   const gender = document.getElementById("gender")?.value || "male";
   const calendar = document.getElementById("calendar")?.value || "gregorian";
 
@@ -192,10 +197,10 @@ function deployTacticalMap() {
   }
 
   // 顯示結果區
-  document.getElementById("input-section").classList.add("hidden");
-  document.getElementById("result-section").classList.remove("hidden");
-  document.getElementById("btn-reset").classList.remove("hidden");
-  document.getElementById("btn-recalc").classList.remove("hidden");
+  document.getElementById("input-section")?.classList.add("hidden");
+  document.getElementById("result-section")?.classList.remove("hidden");
+  document.getElementById("btn-reset")?.classList.remove("hidden");
+  document.getElementById("btn-recalc")?.classList.remove("hidden");
 
   const [y, m, d] = dob.split("-").map(Number);
   const timeIdx = timeIndexFromInput(tob);
@@ -205,7 +210,6 @@ function deployTacticalMap() {
   try {
     if (calendar === "lunar") {
       // lunar: byLunar(year, month, day, isLeapMonth, timeIndex, gender, fixLeap, locale?)
-      // 這裡用「非閏月」預設；若你需要閏月 UI，我可以再補。
       chart = astro.byLunar(y, m, d, false, timeIdx, genderZh, true, "zh-TW");
     } else {
       chart = astro.bySolar(`${y}-${m}-${d}`, timeIdx, genderZh, true, "zh-TW");
@@ -222,8 +226,13 @@ function deployTacticalMap() {
 
   // 重建盤面（保留中心與 SVG overlay）
   const root = document.getElementById("map-root");
-  const centerHole = root.querySelector(".center-hole");
-  const svgOverlay = root.querySelector("#svg-overlay");
+  const centerHole = root?.querySelector(".center-hole");
+  const svgOverlay = root?.querySelector("#svg-overlay");
+  if (!root || !centerHole || !svgOverlay) {
+    showError("頁面結構缺失：找不到盤面容器（map-root）。");
+    return;
+  }
+
   root.innerHTML = "";
   root.appendChild(centerHole);
   root.appendChild(svgOverlay);
@@ -327,12 +336,13 @@ function deployTacticalMap() {
     `${toSafeText(chart.chineseDate)} 生 / 命主 ${toSafeText(chart.soul)}`;
 
   updateAnalysis(chart, lianZhenIdx);
-    const profileEl = document.getElementById("profile-summary");
+
+  // NEW：渲染命格一分鐘摘要
+  const profileEl = document.getElementById("profile-summary");
   if (profileEl) profileEl.innerHTML = buildProfileSummaryHTML(chart);
 
-
-  // 預設選命宮
-  const nominalIdx = chart.palaces.findIndex((p) => p.earthlyBranch === nominalBranch);
+  // 預設選命宮（以宮名=命為主）
+  const nominalIdx = chart.palaces.findIndex((p) => normalizePalaceName(p.name) === "命");
   if (nominalIdx >= 0) selectPalace(nominalIdx);
 
   drawClashLine(lianZhenIdx);
@@ -378,7 +388,10 @@ function renderPalaceDetail(palace, idx) {
     `<span class="inline-block mr-2 mb-2 px-2 py-1 border border-zinc-800 text-zinc-300 text-[11px]">${toSafeText(s.name)}</span>`
   ).join("");
 
-  document.getElementById("palace-detail").innerHTML = `
+  const detailEl = document.getElementById("palace-detail");
+  if (!detailEl) return;
+
+  detailEl.innerHTML = `
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="text-sm font-black">${toSafeText(palace.name)} <span class="text-[11px] text-zinc-500">#${idx}</span></div>
@@ -398,6 +411,9 @@ function renderPalaceDetail(palace, idx) {
       <div>${minor || `<div class="text-zinc-500 text-[11px]">（無資料）</div>`}</div>
     </div>
   `;
+
+  // NEW：宮位小白說明（人生/性格）
+  detailEl.innerHTML += buildLifeExplainHTML(palace);
 }
 
 function updateAnalysis(chart, lzIdx) {
@@ -494,6 +510,10 @@ function drawClashLine(idx) {
 }
 
 // 讓 HTML onclick 可呼叫（Vite module scope 不會自動變全域）
+window.deployTacticalMap = deployTacticalMap;
+window.resetToInput = resetToInput;
+window.scrollToTopQuests = scrollToTopQuests;
+
 window.deployTacticalMap = deployTacticalMap;
 window.resetToInput = resetToInput;
 window.scrollToTopQuests = scrollToTopQuests;

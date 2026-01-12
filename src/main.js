@@ -35,6 +35,93 @@ function timeIndexFromInput(tob) {
   return Math.floor((hour + 1) / 2);
 }
 
+function daysInMonth(y, m) {
+  return new Date(y, m, 0).getDate(); // m: 1..12
+}
+
+function initDOBSelectors() {
+  const yEl = document.getElementById("dob-year");
+  const mEl = document.getElementById("dob-month");
+  const dEl = document.getElementById("dob-day");
+  if (!yEl || !mEl || !dEl) return; // 若你沒換 index.html，就不做
+
+  // 預設值：先讀 localStorage，再用 1995-01-01
+  const saved = localStorage.getItem("sm_dob");
+  let defY = 1995, defM = 1, defD = 1;
+  if (saved) {
+    const parts = saved.split("-").map((n) => parseInt(n, 10));
+    if (parts.length === 3 && parts.every((x) => Number.isFinite(x))) {
+      [defY, defM, defD] = parts;
+    }
+  }
+
+  // 年份清單：今年往回到 1900（你也可改成 1800）
+  const currentYear = new Date().getFullYear();
+  yEl.innerHTML = "";
+  for (let y = currentYear; y >= 1900; y--) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = `${y} 年`;
+    yEl.appendChild(opt);
+  }
+
+  // 月份
+  mEl.innerHTML = "";
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement("option");
+    opt.value = String(m);
+    opt.textContent = `${m} 月`;
+    mEl.appendChild(opt);
+  }
+
+  function syncDays() {
+    const y = parseInt(yEl.value, 10);
+    const m = parseInt(mEl.value, 10);
+    const maxD = daysInMonth(y, m);
+    const currentD = parseInt(dEl.value || "1", 10);
+
+    dEl.innerHTML = "";
+    for (let d = 1; d <= maxD; d++) {
+      const opt = document.createElement("option");
+      opt.value = String(d);
+      opt.textContent = `${d} 日`;
+      dEl.appendChild(opt);
+    }
+    dEl.value = String(Math.min(currentD, maxD));
+  }
+
+  // 設定預設值
+  yEl.value = String(defY);
+  mEl.value = String(defM);
+  syncDays();
+  dEl.value = String(defD);
+
+  yEl.addEventListener("change", syncDays);
+  mEl.addEventListener("change", syncDays);
+}
+
+function getDOBParts() {
+  // 新版：下拉
+  const yEl = document.getElementById("dob-year");
+  const mEl = document.getElementById("dob-month");
+  const dEl = document.getElementById("dob-day");
+  if (yEl && mEl && dEl) {
+    const y = parseInt(yEl.value, 10);
+    const m = parseInt(mEl.value, 10);
+    const d = parseInt(dEl.value, 10);
+    if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) return { y, m, d };
+  }
+
+  // 舊版相容：input date（如果你沒換 index.html）
+  const dob = document.getElementById("dob")?.value;
+  if (dob) {
+    const [y, m, d] = dob.split("-").map(Number);
+    if ([y, m, d].every((n) => Number.isFinite(n))) return { y, m, d };
+  }
+
+  return null;
+}
+
 function palaceDefByName(palaceName) {
   const key = normalizePalaceName(palaceName);
   return KB2026.palace_definitions[key] || null;
@@ -47,14 +134,12 @@ function starsOfPalace(palace) {
 function starTagForMajors(majors) {
   if (!majors || majors.length === 0) return null;
 
-  // 先找 2 星組合（例如 武曲天相）
   if (majors.length >= 2) {
     const combo1 = `${majors[0]}${majors[1]}`;
     const combo2 = `${majors[1]}${majors[0]}`;
     const hit = KB2026.star_profiles[combo1] || KB2026.star_profiles[combo2];
     if (hit) return hit;
   }
-  // 再找第一顆星
   return KB2026.star_profiles[majors[0]] || null;
 }
 
@@ -109,31 +194,34 @@ function scrollToTopQuests() {
 function deployTacticalMap() {
   clearError();
 
-  const dob = document.getElementById("dob")?.value;
-  const tob = document.getElementById("tob")?.value;
+  const dobParts = getDOBParts();
+  const tob = document.getElementById("tob")?.value || "12:00";
   const gender = document.getElementById("gender")?.value || "male";
   const calendar = document.getElementById("calendar")?.value || "gregorian";
 
-  if (!dob) {
-    showError("請先輸入出生日期。");
+  if (!dobParts) {
+    showError("請先選擇出生年月日。");
     return;
   }
+
+  // 記住生日（方便手機不用每次選）
+  localStorage.setItem("sm_dob", `${dobParts.y}-${dobParts.m}-${dobParts.d}`);
+  localStorage.setItem("sm_tob", tob);
 
   document.getElementById("input-section")?.classList.add("hidden");
   document.getElementById("result-section")?.classList.remove("hidden");
   document.getElementById("btn-reset")?.classList.remove("hidden");
   document.getElementById("btn-recalc")?.classList.remove("hidden");
 
-  const [y, m, d] = dob.split("-").map(Number);
   const timeIdx = timeIndexFromInput(tob);
   const genderZh = gender === "female" ? "女" : "男";
 
   let chart;
   try {
     if (calendar === "lunar") {
-      chart = astro.byLunar(y, m, d, false, timeIdx, genderZh, true, "zh-TW");
+      chart = astro.byLunar(dobParts.y, dobParts.m, dobParts.d, false, timeIdx, genderZh, true, "zh-TW");
     } else {
-      chart = astro.bySolar(`${y}-${m}-${d}`, timeIdx, genderZh, true, "zh-TW");
+      chart = astro.bySolar(`${dobParts.y}-${dobParts.m}-${dobParts.d}`, timeIdx, genderZh, true, "zh-TW");
     }
   } catch (e) {
     console.error(e);
@@ -308,14 +396,14 @@ function renderPalaceDetail(palace, idx) {
   const detailEl = document.getElementById("palace-detail");
   if (!detailEl) return;
 
-  // 空宮處理
   let emptyHint = "";
   if (majorsDirect.length === 0 && borrowPack.mode === "borrow") {
     const oppName = toSafeText(borrowPack.opp?.name);
     const oppStars = borrowPack.majors.length ? borrowPack.majors.join("、") : "（仍無主星）";
     emptyHint = `
       <div class="mt-2 text-[11px] text-zinc-400">
-        <span class="text-zinc-300 font-bold">空宮</span>：${KB2026.empty_palace_copy.title}｜借對宮：<span class="text-zinc-200">${oppName}</span>（主星：${oppStars}）
+        <span class="text-zinc-300 font-bold">空宮</span>：${KB2026.empty_palace_copy.title}｜
+        借對宮：<span class="text-zinc-200">${oppName}</span>（主星：${oppStars}）
       </div>
     `;
   }
@@ -358,17 +446,14 @@ function buildLifeExplainHTML(idx) {
   const key = normalizePalaceName(palace.name);
   const huaLines = [];
 
-  // 本命四化（若 iztro 有）
   for (const s of (palace.majorStars || [])) {
     if (s.lunarSihua) huaLines.push(`本命 ${s.name} 化${s.lunarSihua}：${huaMeaning(s.lunarSihua) || ""}`);
   }
-  // 2026 流年四化
   for (const s of (palace.majorStars || [])) {
     const hua = SIHUA_2026[s.name];
     if (hua) huaLines.push(`2026 ${s.name} 化${hua}：${huaMeaning(hua) || ""}`);
   }
 
-  // 疾厄：壓力反應（提醒語氣）
   let stressBlock = "";
   if (key === "疾厄" && majors.length) {
     const notes = majors
@@ -385,7 +470,6 @@ function buildLifeExplainHTML(idx) {
     }
   }
 
-  // 行動建議
   const ctas = (def?.cta || []).slice(0, 4);
   const ctaHTML = ctas.length
     ? `<div class="mt-3 text-[11px] text-zinc-300"><div class="text-zinc-400 mb-1">可執行小動作</div>- ${ctas.join("<br/>- ")}</div>`
@@ -440,7 +524,6 @@ function buildProfileSummaryHTML() {
   const idxFriends = getIdxByPalaceKey("交友");
 
   const mingPack = getMajorStarsOrBorrow(idxMing);
-  const fudePack = getMajorStarsOrBorrow(idxFude);
   const jiePack = getMajorStarsOrBorrow(idxJie);
   const fuqiPack = getMajorStarsOrBorrow(idxFuqi);
   const frPack = getMajorStarsOrBorrow(idxFriends);
@@ -448,9 +531,8 @@ function buildProfileSummaryHTML() {
   const mingTag = starTagForMajors(mingPack.majors);
   const jieTag = starTagForMajors(jiePack.majors);
 
-  // 2026：四化落宮定位
-  const idxJi = _lastLianZhenIdx; // 廉貞化忌所在宮（你盤面已算）
-  const idxLu = findPalaceIndexByStarName("天同"); // 天同化祿所在宮
+  const idxJi = _lastLianZhenIdx; // 廉貞化忌所在宮
+  const idxLu = findPalaceIndexByStarName("天同"); // 天同化祿
   const idxQuan = findPalaceIndexByStarName("天機"); // 天機化權
   const idxKe = findPalaceIndexByStarName("文昌"); // 文昌化科
 
@@ -481,7 +563,6 @@ function buildProfileSummaryHTML() {
   const jiAction = jiDef?.cta?.slice(0, 2).join("、") || "先補洞再衝刺";
   const luAction = luDef?.cta?.slice(0, 2).join("、") || "增加曝光與合作";
 
-  // 紅綠燈列表（含權/科）
   const traffic = [
     idxLu >= 0 ? { hua: "祿", idx: idxLu } : null,
     idxKe >= 0 ? { hua: "科", idx: idxKe } : null,
@@ -566,11 +647,10 @@ function buildMonthlyQuests(jiKey, luKey) {
 
   return KB2026.monthly_strategy.map((it) => {
     const m = `${it.month} 月`;
-    // 個人化拼貼：把「壓力/機會」塞回文案
     let tail = "";
-    if (it.color === "red") tail = `（提醒：今年要特別顧「${jiLabel}」這塊）`;
-    else if (it.color === "green") tail = `（加分：把成果丟到「${luLabel}」舞台上）`;
-    else if (it.color === "yellow") tail = `（修煉：用專業把節奏拿回來）`;
+    if (it.color === "red") tail = `（提醒：今年要特別顧「${jiLabel}」）`;
+    else if (it.color === "green") tail = `（加分：把成果丟到「${luLabel}」舞台）`;
+    else if (it.color === "yellow") tail = `（修煉：用專業拿回節奏）`;
     else tail = `（穩定：用口碑與條理累積信用）`;
 
     return {
@@ -611,25 +691,132 @@ function drawClashLine(idx) {
   line.setAttribute("stroke-width", "1.6");
   line.setAttribute("stroke-dasharray", "6,4");
   line.setAttribute("opacity", "0.65");
-
-  const c1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  c1.setAttribute("cx", x1);
-  c1.setAttribute("cy", y1);
-  c1.setAttribute("r", "2.8");
-  c1.setAttribute("fill", "#C41E3A");
-  c1.setAttribute("opacity", "0.55");
-
-  const c2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  c2.setAttribute("cx", x2);
-  c2.setAttribute("cy", y2);
-  c2.setAttribute("r", "2.8");
-  c2.setAttribute("fill", "#C41E3A");
-  c2.setAttribute("opacity", "0.55");
-
   svg.appendChild(line);
-  svg.appendChild(c1);
-  svg.appendChild(c2);
 }
+
+/** =======================
+ *  匯出 CSV（年度導航 + 12宮場景 + 流月任務）
+ *  ======================= */
+function csvEscape(v) {
+  const s = toSafeText(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function exportCSV() {
+  if (!_lastChart) {
+    showError("請先啟動演算，才能匯出 CSV。");
+    return;
+  }
+
+  const dob = getDOBParts();
+  const tob = document.getElementById("tob")?.value || "";
+  const gender = document.getElementById("gender")?.value || "";
+  const calendar = document.getElementById("calendar")?.value || "";
+
+  const idxJi = _lastLianZhenIdx;
+  const idxLu = findPalaceIndexByStarName("天同");
+  const jiKey = idxJi >= 0 ? normalizePalaceName(_lastChart.palaces[idxJi].name) : "";
+  const luKey = idxLu >= 0 ? normalizePalaceName(_lastChart.palaces[idxLu].name) : "";
+  const jiDef = jiKey ? KB2026.palace_definitions[jiKey] : null;
+  const luDef = luKey ? KB2026.palace_definitions[luKey] : null;
+
+  const rows = [];
+
+  // Excel 友善：UTF-8 BOM
+  rows.push(["紫微戰略地圖｜匯出資料（2026）"]);
+  rows.push([]);
+  rows.push(["年度導航"]);
+  rows.push(["項目", "內容"]);
+  rows.push(["生日", dob ? `${dob.y}-${dob.m}-${dob.d}` : ""]);
+  rows.push(["時間", tob]);
+  rows.push(["性別", gender]);
+  rows.push(["曆法", calendar]);
+  rows.push(["五行局", _lastChart.fiveElementsClass]);
+  rows.push(["命主", _lastChart.soul]);
+  rows.push(["壓力點（忌）", jiKey ? `${jiKey}｜${jiDef?.label || ""}` : ""]);
+  rows.push(["機會點（祿）", luKey ? `${luKey}｜${luDef?.label || ""}` : ""]);
+  rows.push([]);
+
+  // 12宮場景
+  rows.push(["十二宮場景"]);
+  rows.push(["宮位", "場景標籤", "核心描述", "主星(或借星)", "是否空宮", "借對宮", "2026 四化", "行動建議"]);
+
+  _lastChart.palaces.forEach((p, idx) => {
+    const key = normalizePalaceName(p.name);
+    const def = KB2026.palace_definitions[key];
+    const majors = starsOfPalace(p);
+    let isEmpty = majors.length === 0;
+    let borrowFrom = "";
+    let majorsText = majors.join("、");
+
+    if (isEmpty) {
+      const oppIdx = (idx + 6) % 12;
+      const opp = _lastChart.palaces[oppIdx];
+      const oppMajors = starsOfPalace(opp);
+      borrowFrom = normalizePalaceName(opp.name);
+      majorsText = oppMajors.join("、") || "（無）";
+    }
+
+    const huaList = (p.majorStars || [])
+      .map((s) => SIHUA_2026[s.name] ? `${s.name}化${SIHUA_2026[s.name]}` : "")
+      .filter(Boolean)
+      .join("；");
+
+    const cta = (def?.cta || []).slice(0, 3).join(" / ");
+
+    rows.push([
+      key,
+      def?.label || "",
+      def?.desc || "",
+      majorsText,
+      isEmpty ? "是" : "否",
+      borrowFrom,
+      huaList,
+      cta,
+    ]);
+  });
+
+  rows.push([]);
+
+  // 流月任務（個人化）
+  rows.push(["流月戰略任務"]);
+  rows.push(["月份", "主題", "任務描述", "行動", "顏色", "個人化提示"]);
+  const months = buildMonthlyQuests(jiKey, luKey);
+  months.forEach((mObj, i) => {
+    const raw = KB2026.monthly_strategy[i];
+    rows.push([raw.month, raw.theme, raw.desc, raw.action, raw.color, mObj.task]);
+  });
+
+  const csv = "\uFEFF" + rows.map((r) => r.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `紫微戰略地圖-2026.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// 讓 HTML onclick 可呼叫
+window.deployTacticalMap = deployTacticalMap;
+window.resetToInput = resetToInput;
+window.scrollToTopQuests = scrollToTopQuests;
+window.exportCSV = exportCSV;
+
+// 初始化：生日下拉
+initDOBSelectors();
+
+// 也把時間預設回存（手機方便）
+const savedT = localStorage.getItem("sm_tob");
+if (savedT) {
+  const tob = document.getElementById("tob");
+  if (tob) tob.value = savedT;
+}
+
 
 // 讓 HTML onclick 可呼叫
 window.deployTacticalMap = deployTacticalMap;

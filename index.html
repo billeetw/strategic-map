@@ -1,241 +1,194 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>一起出來玩｜紫微戰略地圖</title>
+    <title>紫微戰略地圖｜用白話把命盤變成 2026 行動策略</title>
   </head>
   <body>
+    <!-- Top bar -->
     <div class="top-bar">
-      📢 <strong>紫微戰略地圖</strong>｜透過紫微演算探尋 2026 年度佈局機遇
+      📢 <strong>紫微戰略地圖</strong>｜用白話把命盤變成 2026 行動策略
     </div>
 
-    <div class="p-4 md:p-8">
-      <header class="max-w-6xl mx-auto mb-6 border-b border-zinc-800 pb-4 flex justify-between items-end gap-4">
+    <main class="wrap">
+      <header class="header">
         <div>
-          <h1 class="text-2xl md:text-3xl font-black text-red-600 tracking-widest uppercase">Ziwei Strategic Map</h1>
-          <p class="text-[10px] text-zinc-500 uppercase tracking-[0.4em] mt-1">Akashic Engine v9.2 - Public Edition</p>
+          <div class="h-title">Ziwei Strategic Map</div>
+          <div class="h-sub">Akashic Engine v9.2 · Public Edition</div>
+          <div class="h-tip">
+            新手導覽：先看「一分鐘摘要」抓全局 → 再點 12 宮看細節 → 最後把流月任務變成可執行清單。
+          </div>
         </div>
-        <div class="hidden md:block text-right text-[11px] text-zinc-500 leading-relaxed max-w-[360px]">
-          新手導覽：先看「一分鐘摘要」抓全局 → 點命盤 12 宮看細節 → 再看年度與流月任務。
+
+        <div class="header-actions">
+          <button id="btn-reset" class="btn btn-ghost hidden" onclick="resetToInput()">重新輸入</button>
+          <button id="btn-recalc" class="btn btn-ghost hidden" onclick="deployTacticalMap()">重新演算</button>
         </div>
       </header>
 
       <!-- STEP 1 -->
-      <section id="input-section" class="max-w-xl mx-auto bg-zinc-900/40 p-6 border border-zinc-800 mb-10 rounded-lg">
-        <h2 class="text-xs font-bold mb-6 text-zinc-400 border-l-2 border-red-600 pl-3 uppercase">
-          STEP 1: 同步個人演算數據
-        </h2>
+      <section id="input-section" class="card">
+        <div class="card-title">STEP 1｜同步個人演算數據</div>
 
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="block text-[11px] text-zinc-500 mb-1">出生年</label>
-            <select id="dob-year" class="w-full input-like"></select>
-          </div>
-          <div>
-            <label class="block text-[11px] text-zinc-500 mb-1">出生月</label>
-            <select id="dob-month" class="w-full input-like"></select>
-          </div>
-          <div>
-            <label class="block text-[11px] text-zinc-500 mb-1">出生日</label>
-            <select id="dob-day" class="w-full input-like"></select>
-          </div>
-        </div>
+        <div id="error-box" class="error hidden"></div>
 
-        <div class="grid grid-cols-2 gap-3 mt-4">
+        <div class="grid2">
           <div>
-            <label class="block text-[11px] text-zinc-500 mb-1">出生時間</label>
-            <input type="time" id="tob" value="12:00" class="w-full input-like" />
+            <label class="label">出生年</label>
+            <select id="dob-year" class="input"></select>
           </div>
           <div>
-            <label class="block text-[11px] text-zinc-500 mb-1">性別</label>
-            <select id="gender" class="w-full input-like">
+            <label class="label">出生月</label>
+            <select id="dob-month" class="input"></select>
+          </div>
+          <div>
+            <label class="label">出生日</label>
+            <select id="dob-day" class="input"></select>
+          </div>
+          <div>
+            <label class="label">出生時間</label>
+            <input id="tob" type="time" class="input" value="12:00" />
+          </div>
+          <div>
+            <label class="label">性別</label>
+            <select id="gender" class="input">
               <option value="male">男</option>
               <option value="female">女</option>
             </select>
           </div>
+          <div>
+            <label class="label">曆法</label>
+            <select id="calendar" class="input">
+              <option value="gregorian">陽曆（西元）</option>
+              <option value="lunar">農曆（簡版）</option>
+            </select>
+          </div>
         </div>
 
-        <div class="mt-4">
-          <label class="block text-[11px] text-zinc-500 mb-1">曆法</label>
-          <select id="calendar" class="w-full input-like">
-            <option value="gregorian">陽曆（西元）</option>
-            <option value="lunar">農曆（非閏月）</option>
-          </select>
-          <p class="text-[11px] text-zinc-500 mt-2 leading-relaxed">
-            小提醒：若你是農曆閏月生日，先用陽曆演算；要做閏月精準版本我也可以再幫你加 UI。
-          </p>
+        <div class="muted mt8">
+          小提醒：若你是閏月生日，農曆演算需額外勾選「閏月」才能更精準（之後可再加 UI）。
         </div>
 
-        <div id="error-box" class="hidden mt-4 p-3 border border-red-700 bg-red-950/40 text-red-200 text-[12px] rounded"></div>
+        <button class="btn btn-primary mt12" onclick="deployTacticalMap()">啟動演算</button>
 
-        <button
-          type="button"
-          onclick="deployTacticalMap()"
-          class="w-full bg-red-700 hover:bg-red-600 py-4 font-black mt-6 text-sm tracking-[.3em] transition-all uppercase rounded"
-        >
-          啟動戰略演算
-        </button>
-
-        <p class="text-[11px] text-zinc-500 mt-3 leading-relaxed">
-          生成結果後，你可以點 12 宮位查看「小白白話 + 行動建議」，並可一鍵匯出 CSV。
-        </p>
+        <div class="muted mt10">
+          ＊本工具是「白話任務導向」，不是專業命理師解盤或醫療建議。
+        </div>
       </section>
 
       <!-- RESULT -->
-      <section id="result-section" class="hidden max-w-6xl mx-auto">
-        <!-- Sticky Quick Nav -->
-        <div id="quick-nav" class="quick-nav sticky z-[999] rounded-lg border border-zinc-800 bg-black/80 backdrop-blur mb-5">
-          <div class="px-3 pt-3 pb-2 text-[12px] text-zinc-300 leading-relaxed md:hidden">
-            新手導覽：先看「一分鐘摘要」抓全局 → 點命盤 12 宮看細節 → 再看年度與流月任務。
-          </div>
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-2 p-2">
-            <button type="button" class="btn-tab" onclick="scrollToSection('sec-chart')">命盤檢視</button>
-            <button type="button" class="btn-tab" onclick="scrollToSection('sec-profile')">命格一分鐘摘要</button>
-            <button type="button" class="btn-tab" onclick="scrollToSection('sec-annual')">年度核心戰略</button>
-            <button type="button" class="btn-tab" onclick="scrollToSection('sec-monthly')">2026 流月建議</button>
-            <button type="button" class="btn-tab btn-tab-secondary" onclick="exportCSV()">匯出 CSV ↗</button>
-          </div>
+      <section id="result-section" class="hidden">
+        <!-- Sticky nav -->
+        <div class="nav">
+          <button class="navbtn" onclick="scrollToSection('sec-chart')">命盤檢視</button>
+          <button class="navbtn" onclick="scrollToSection('sec-profile')">一分鐘摘要</button>
+          <button class="navbtn" onclick="scrollToSection('sec-annual')">年度建議</button>
+          <button class="navbtn" onclick="scrollToSection('sec-monthly')">流月任務</button>
+          <div class="navspacer"></div>
+          <button class="navbtn navbtn-gold" onclick="exportCSV()">匯出 CSV</button>
         </div>
 
-        <!-- Section: Chart + Palace Detail -->
-        <section id="sec-chart" class="grid xl:grid-cols-3 gap-6">
-          <div class="xl:col-span-2">
+        <!-- Profile -->
+        <section id="sec-profile" class="card mt12">
+          <div class="card-title">命格一分鐘摘要（人生 / 性格）</div>
+          <div id="profile-summary" class="text"></div>
+        </section>
+
+        <!-- Annual -->
+        <section id="sec-annual" class="card mt12">
+          <div class="card-title">年度核心戰略建議（2026）</div>
+          <div id="aphorism-text" class="text"></div>
+
+          <!-- CTA (after annual) -->
+          <div class="cta mt12">
+            <div class="cta-title">戰略干預點：需要「人腦介入」的時候到了</div>
+            <div class="cta-desc">
+              數位演算能告訴你風險在哪，但只有人類智慧能告訴你如何贏過這個風險。
+              若你面臨的是涉及人生規劃、核心職涯或企業佈局的關鍵決策，建議啟動 1 對 1 深度諮詢。
+              <div class="cta-note">＊本項諮詢由李伯彥老師親自進行，旨在將數位數據轉化為可執行之商業決策。</div>
+            </div>
+            <a class="btn btn-consult" href="https://forms.gle/Vvs6U12TeMYtab8A6" target="_blank" rel="noreferrer">
+              申請 1 對 1 深度諮詢↗
+            </a>
+          </div>
+        </section>
+
+        <!-- Chart + Palace detail -->
+        <section id="sec-chart" class="mt12 layout">
+          <div class="left">
             <div class="card">
-              <div class="flex items-start justify-between gap-4 mb-3">
-                <div>
-                  <div class="text-sm md:text-base font-black text-zinc-100">命盤檢視</div>
-                  <div class="text-[12px] text-zinc-400 mt-1">
-                    提醒：<span class="text-zinc-200 font-bold">點選不同宮位可看情報</span>（手機會用底部抽屜彈出解析）
+              <div class="card-title">命盤檢視宮位</div>
+              <div class="muted">
+                提醒：點選不同宮位可看情報（手機會從下方彈出卡片）。
+                <span class="legend">
+                  <span class="dot dot-green"></span>祿/科/權（加分）
+                  <span class="dot dot-red"></span>忌（提醒）
+                  <span class="dot dot-link">🔗</span>空宮借對宮
+                </span>
+              </div>
+
+              <div class="chart-shell">
+                <div class="chart-grid" id="map-root">
+                  <div class="center-hole">
+                    <div id="bureau-text" class="center-big">--局</div>
+                    <div id="destiny-text" class="center-sub">Analyzing...</div>
+                    <div class="center-chip">2026 丙午流年：四化疊加模式</div>
                   </div>
+                  <svg id="svg-overlay"></svg>
                 </div>
-                <div class="text-right">
-                  <div id="bureau-text" class="text-[#D4AF37] font-black text-2xl md:text-3xl">--局</div>
-                  <div id="destiny-text" class="text-zinc-500 text-[11px] mt-1 font-mono">Analyzing...</div>
-                </div>
-              </div>
-
-              <div class="chart-grid" id="map-root">
-                <div class="center-hole text-center">
-                  <div class="center-badge">2026 丙午流年｜四化疊加模式</div>
-                  <div class="center-sub">提示：祿/權/科 = 金色微光｜忌 = 紅色警示｜空宮 = 借對宮 🔗</div>
-                </div>
-                <svg id="svg-overlay"></svg>
               </div>
             </div>
           </div>
 
-          <div class="xl:col-span-1">
+          <div class="right">
             <div class="card">
-              <div class="flex items-center justify-between gap-3 mb-2">
-                <div>
-                  <div class="text-sm md:text-base font-black text-zinc-100">宮位情報</div>
-                  <div class="text-[12px] text-zinc-400 mt-1">點選任一宮位查看（桌機右側更新／手機底部抽屜）</div>
-                </div>
-                <div class="flex gap-2">
-                  <button type="button" id="btn-recalc" onclick="deployTacticalMap()" class="btn-mini hidden">重新演算</button>
-                  <button type="button" id="btn-reset" onclick="resetToInput()" class="btn-mini hidden">重設</button>
-                </div>
-              </div>
-
-              <div id="palace-detail" class="text-zinc-500 text-[12px] leading-relaxed">
-                尚未選擇宮位。
+              <div class="card-title">宮位情報</div>
+              <div class="muted">點選任一宮位查看（桌機右側更新 / 手機底部抽屜）。</div>
+              <div id="palace-detail" class="text mt10">
+                <div class="muted">尚未選擇宮位。</div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Section: Profile Summary -->
-        <section id="sec-profile" class="mt-6">
-          <div class="card">
-            <div class="text-sm md:text-base font-black text-zinc-100 mb-2">命格一分鐘摘要（人生/性格）</div>
-            <div id="profile-summary" class="text-[13px] md:text-[14px] text-zinc-300 leading-relaxed">
-              請先啟動演算。
+        <!-- Monthly -->
+        <section id="sec-monthly" class="card mt12">
+          <div class="row">
+            <div>
+              <div class="card-title">2026 流月建議（任務清單）</div>
+              <div class="muted">每月一句話：進攻 / 防守 / 修煉 / 穩定。</div>
             </div>
+            <button class="btn btn-ghost" onclick="scrollToTopQuests()">回頂部</button>
           </div>
-        </section>
 
-        <!-- Section: Annual -->
-        <section id="sec-annual" class="mt-6">
-          <div class="card">
-            <div class="text-sm md:text-base font-black text-zinc-100 mb-2">年度核心戰略建議</div>
-            <p id="aphorism-text" class="text-[13px] md:text-[14px] text-zinc-300 leading-relaxed"></p>
+          <div id="quest-list" class="quest-list mt10"></div>
 
-            <!-- CTA 1: Under annual aphorism -->
-            <div class="mt-5 p-4 border border-zinc-800 rounded-lg bg-zinc-900/40">
-              <div class="text-zinc-200 font-black mb-2">戰略干預點：需要人腦介入時</div>
-              <div class="text-[12px] text-zinc-400 leading-relaxed">
-                數位演算能告訴你風險在哪，但只有人類智慧能告訴你如何贏過這個風險。若您面臨的是涉及人生規劃、核心職涯或企業規劃的關鍵決策，建議啟動 1 對 1 深度諮詢。
-              </div>
-              <a
-                class="cta-btn mt-3 inline-flex"
-                href="https://forms.gle/Vvs6U12TeMYtab8A6"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                申請 1 對 1 深度諮詢（NT$3600） ↗
-              </a>
-              <div class="text-[11px] text-zinc-500 mt-2 leading-relaxed">
-                ＊本項諮詢由李伯彥老師親自進行，旨在將數位數據轉化為可執行之商業決策。
-              </div>
+          <!-- CTA (after monthly) - fade in after 2s -->
+          <div id="cta-monthly" class="cta mt12 cta-hidden">
+            <div class="cta-title">看完 12 個月還是不知道怎麼收斂？</div>
+            <div class="cta-desc">
+              我可以把這張戰略地圖轉成「你的個人執行清單」：哪些該衝、哪些該守、哪些要先補洞。
+              <div class="cta-note">＊同樣由李伯彥老師親自進行。</div>
             </div>
-          </div>
-        </section>
-
-        <!-- Section: Monthly -->
-        <section id="sec-monthly" class="mt-6">
-          <div class="card">
-            <div class="flex items-center justify-between gap-4 mb-3">
-              <div>
-                <div class="text-sm md:text-base font-black text-zinc-100">2026 流月戰略任務副本</div>
-                <div class="text-[12px] text-zinc-400 mt-1">
-                  點月份任務可定位命盤格子（閃兩下），幫你建立「時間 ↔ 空間」的直覺。
-                </div>
-              </div>
-              <button type="button" onclick="scrollToSection('sec-chart')" class="btn-mini">回到命盤</button>
-            </div>
-
-            <div class="max-h-[420px] overflow-y-auto pr-2 custom-scrollbar" id="quest-list"></div>
-
-            <!-- CTA 2: delayed reveal -->
-            <div id="cta-monthly" class="cta-hidden mt-5 p-4 border border-zinc-800 rounded-lg bg-zinc-900/40">
-              <div class="text-zinc-200 font-black mb-2">將戰略地圖轉化為個人執行清單</div>
-              <div class="text-[12px] text-zinc-400 leading-relaxed">
-                看完 12 個月任務後，如果你覺得資訊量太大、難以收斂成具體行動，我們可以把你的命盤與年度攻防，整理成「你做得到」的週/月行動清單。
-              </div>
-              <a
-                class="cta-btn mt-3 inline-flex"
-                href="https://forms.gle/Vvs6U12TeMYtab8A6"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                申請 1 對 1 深度諮詢（NT$3600） ↗
-              </a>
-              <div class="text-[11px] text-zinc-500 mt-2 leading-relaxed">
-                ＊本項諮詢由李伯彥老師親自進行，旨在將數位數據轉化為可執行之商業決策。
-              </div>
-            </div>
+            <a class="btn btn-consult" href="https://forms.gle/Vvs6U12TeMYtab8A6" target="_blank" rel="noreferrer">
+              將戰略地圖轉化為個人執行清單↗
+            </a>
           </div>
         </section>
       </section>
-    </div>
+    </main>
 
     <!-- Mobile Bottom Sheet -->
-    <div id="sheet-root" class="hidden fixed inset-0 z-[2000]">
-      <div id="sheet-backdrop" class="absolute inset-0 bg-black/60"></div>
-
-      <div
-        id="sheet-panel"
-        class="absolute left-0 right-0 bottom-0 bg-black border border-zinc-800 rounded-t-2xl p-4 translate-y-full transition-transform duration-200"
-        style="max-height: 70vh;"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <div class="text-zinc-200 font-black" id="sheet-title">宮位解析</div>
-          <button id="sheet-close" type="button" class="btn-mini">關閉</button>
+    <div id="sheet-root" class="sheet hidden" aria-hidden="true">
+      <div id="sheet-backdrop" class="sheet-backdrop"></div>
+      <div id="sheet-panel" class="sheet-panel translate-y-full" role="dialog" aria-modal="true">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+          <div id="sheet-title" class="sheet-title">宮位解析</div>
+          <button id="sheet-close" class="sheet-close" aria-label="close">✕</button>
         </div>
-        <div class="mt-2 h-[2px] w-12 bg-zinc-700 rounded mx-auto opacity-70"></div>
-
-        <div id="sheet-body" class="mt-3 overflow-y-auto custom-scrollbar pr-1" style="max-height: 58vh;"></div>
+        <div id="sheet-body" class="sheet-body"></div>
       </div>
     </div>
 

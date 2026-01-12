@@ -1,45 +1,8 @@
 import "./style.css";
 import { astro } from "iztro";
+import { KB2026 } from "./kb_2026.js";
 
-// 2026 丙午年四化：同機昌廉
-const SIHUA_2026 = { "天同": "祿", "天機": "權", "文昌": "科", "廉貞": "忌" };
-
-// ===== 人生/性格導向：四化白話 =====
-const HUA_MEANING_LIFE = {
-  "祿": "更容易得到支持、資源靠近你（舒服，但也可能變懶）",
-  "權": "主導感變強、責任上身、你會被推去做決定（也更容易累）",
-  "科": "更容易被看見與肯定，適合建立作品/口碑/信用",
-  "忌": "容易卡住或反覆，會戳到你的焦慮點（但也是最能長大的地方）",
-};
-
-// ===== 人生/性格導向：宮位白話（先做最重要幾個） =====
-const PALACE_MEANING_LIFE = {
-  "命": "你這個人最核心的性格與人生主題（做事本能）",
-  "福德": "你怎麼快樂、怎麼充電、內在安全感來源",
-  "疾厄": "壓力反應、耗損點、身心修復方式",
-  "夫妻": "親密關係互動模式、承諾與界線",
-  "交友": "人際圈與社交風格、你吸引什麼人、支持系統",
-  "官祿": "工作風格與角色感（也會影響自我價值）",
-  "財帛": "你對金錢/價值的信念、如何把能力變現",
-};
-
-// ===== 人生/性格導向：14 主星白話（天賦/陰影/需要/練習） =====
-const STAR_PROFILE = {
-  "紫微": { gift:"主心骨、格局感", shadow:"容易背太多、控制/責任過頭", need:"信任與授權", practice:"把『我扛』改成『我帶』" },
-  "天機": { gift:"洞察、策略、反應快", shadow:"想太多、焦慮、三心二意", need:"節奏與收斂", practice:"每次只做一件『最重要的事』" },
-  "太陽": { gift:"行動力、願意照亮別人", shadow:"逞強、怕示弱、過勞", need:"休息不等於退縮", practice:"把『被需要』改成『被尊重』" },
-  "武曲": { gift:"務實可靠、能扛績效", shadow:"太硬、情緒被壓住", need:"允許自己脆弱", practice:"先說感受，再談解法" },
-  "天同": { gift:"人緣、溫柔修復力", shadow:"逃避衝突、拖延", need:"界線與決斷", practice:"把『好好』改成『清楚』" },
-  "廉貞": { gift:"原則、魅力、重整能力", shadow:"黑白分明、糾結拉扯", need:"灰度與彈性", practice:"先問『我想要什麼』再談對錯" },
-  "天府": { gift:"穩、守成、資源整合", shadow:"怕變動、安逸", need:"適度冒險", practice:"每季做一次小幅更新" },
-  "太陰": { gift:"細膩、感受深、品味", shadow:"敏感內耗、悶", need:"被理解與安全感", practice:"把想法說出來，不要只放心裡" },
-  "貪狼": { gift:"企圖心、人脈、享受人生", shadow:"分心、過量", need:"排序與節制", practice:"先選一個主線，其餘當獎勵" },
-  "巨門": { gift:"思辨、抓問題核心", shadow:"挑剔、鑽牛角尖", need:"同理與降噪", practice:"先確認『我們同一隊』再討論" },
-  "天相": { gift:"公平、專業、協調", shadow:"怕得罪人、猶豫", need:"決策底線", practice:"設定原則：可談/不可談" },
-  "天梁": { gift:"保護力、貴人、風險控管", shadow:"太保守、說教", need:"允許享受", practice:"把『應該』換成『選擇』" },
-  "七殺": { gift:"果斷攻堅、破局", shadow:"太急、硬碰硬", need:"策略與耐心", practice:"先佈局再出手" },
-  "破軍": { gift:"改革、重啟勇氣", shadow:"衝動全砍、忽略成本", need:"收尾能力", practice:"改版要保留一條安全繩" },
-};
+const SIHUA_2026 = KB2026.annual_sihua_2026;
 
 let _lastChart = null;
 let _lastLianZhenIdx = -1;
@@ -57,15 +20,14 @@ function clearError() {
   box.textContent = "";
   box.classList.add("hidden");
 }
-
 function toSafeText(v) {
   return v === null || v === undefined ? "" : String(v);
 }
+function normalizePalaceName(name) {
+  return (name || "").replace("宮", "");
+}
 
 // iztro timeIndex：0..12（含早/晚子）
-// - 00:00~00:59 → 0（早子）
-// - 23:00~23:59 → 12（晚子）
-// - 其餘每 2 小時一段：1..11
 function timeIndexFromInput(tob) {
   const hour = parseInt((tob || "12:00").split(":")[0], 10);
   if (hour === 0) return 0;
@@ -73,91 +35,52 @@ function timeIndexFromInput(tob) {
   return Math.floor((hour + 1) / 2);
 }
 
-function normalizePalaceName(name) {
-  return (name || "").replace("宮", "");
+function palaceDefByName(palaceName) {
+  const key = normalizePalaceName(palaceName);
+  return KB2026.palace_definitions[key] || null;
 }
 
-function starLineLife(starName) {
-  const p = STAR_PROFILE[starName];
-  if (!p) return `【${toSafeText(starName)}】（尚未建立白話）`;
-  return `【${toSafeText(starName)}】天賦：${p.gift}｜陰影：${p.shadow}｜需要：${p.need}｜練習：${p.practice}`;
+function starsOfPalace(palace) {
+  return (palace?.majorStars || []).map((s) => s.name).filter(Boolean);
 }
 
-function huaHintsLife(palace) {
-  const lines = [];
-  for (const s of (palace.majorStars || [])) {
-    const annual = SIHUA_2026[s.name];
-    const natal = s.lunarSihua;
+function starTagForMajors(majors) {
+  if (!majors || majors.length === 0) return null;
 
-    if (natal && HUA_MEANING_LIFE[natal]) {
-      lines.push(`本命 ${s.name} 化${natal}：${HUA_MEANING_LIFE[natal]}`);
-    }
-    if (annual && HUA_MEANING_LIFE[annual]) {
-      lines.push(`2026 ${s.name} 化${annual}：${HUA_MEANING_LIFE[annual]}`);
-    }
+  // 先找 2 星組合（例如 武曲天相）
+  if (majors.length >= 2) {
+    const combo1 = `${majors[0]}${majors[1]}`;
+    const combo2 = `${majors[1]}${majors[0]}`;
+    const hit = KB2026.star_profiles[combo1] || KB2026.star_profiles[combo2];
+    if (hit) return hit;
   }
-  return lines;
+  // 再找第一顆星
+  return KB2026.star_profiles[majors[0]] || null;
 }
 
-function buildLifeExplainHTML(palace) {
-  const key = normalizePalaceName(palace.name);
-  const meaning = PALACE_MEANING_LIFE[key] || "（此宮位人生意義待補）";
+function getMajorStarsOrBorrow(idx) {
+  const palace = _lastChart?.palaces?.[idx];
+  if (!palace) return { mode: "none", palace: null, majors: [] };
 
-  const majors = (palace.majorStars || []).map(s => s.name).slice(0, 3);
-  const starText = majors.length ? majors.map(starLineLife).join("<br/>") : "此宮主星較少：更建議看你在此領域的行為模式與四化提示。";
+  const majors = starsOfPalace(palace);
+  if (majors.length) return { mode: "direct", palace, majors };
 
-  const hua = huaHintsLife(palace);
-  const huaText = hua.length
-    ? `- ${hua.join("<br/>- ")}`
-    : "（此宮今年沒有明顯四化標記，重點回到主星的天賦/陰影如何被你使用。）";
+  const oppIdx = (idx + 6) % 12;
+  const opp = _lastChart?.palaces?.[oppIdx];
+  const oppMajors = starsOfPalace(opp);
 
-  return `
-    <div class="mt-4 border-t border-zinc-800 pt-4">
-      <div class="text-[11px] text-zinc-400 mb-2">新手白話（人生/性格）</div>
-      <div class="text-[12px] leading-relaxed text-zinc-200">
-        <div class="mb-2">這是【${toSafeText(palace.name)}】：${meaning}</div>
-        <div class="mb-3">${starText}</div>
-        <div class="text-zinc-300">
-          <div class="text-[11px] text-zinc-400 mb-1">四化提示</div>
-          ${huaText}
-        </div>
-      </div>
-    </div>
-  `;
+  return { mode: "borrow", palace, opp, oppIdx, majors: oppMajors };
 }
 
-function buildProfileSummaryHTML(chart) {
-  const getPalaceByKey = (k) =>
-    chart.palaces.find(p => normalizePalaceName(p.name) === k) || null;
+function huaMeaning(hua) {
+  const d = KB2026.hua_definitions[hua];
+  if (!d) return null;
+  return `${d.status}：${d.guidance}`;
+}
 
-  // 命宮：優先用「宮名=命」找，避免抓錯（你之前出現（無）就是常見情況）
-  const ming = getPalaceByKey("命") || null;
-
-  const fud = getPalaceByKey("福德");
-  const jie = getPalaceByKey("疾厄");
-  const fuqi = getPalaceByKey("夫妻");
-  const friends = getPalaceByKey("交友");
-
-  const pickStars = (p) => (p?.majorStars || []).map(s => s.name).slice(0, 2).join("、") || "（無）";
-
-  const mingStars = pickStars(ming);
-  const fudStars = pickStars(fud);
-  const jieStars = pickStars(jie);
-
-  return `
-    <div class="text-zinc-200">
-      你的性格核心（命宮）：<span class="text-[#D4AF37] font-bold">${toSafeText(mingStars)}</span>
-    </div>
-
-    <div class="text-zinc-400 mt-2">快樂與安全感（福德）：${toSafeText(fudStars)}</div>
-    <div class="text-zinc-400 mt-1">壓力反應（疾厄）：${toSafeText(jieStars)}</div>
-    <div class="text-zinc-400 mt-1">關係模式（夫妻 / 交友）：${toSafeText(pickStars(fuqi))} ／ ${toSafeText(pickStars(friends))}</div>
-
-    <div class="mt-3 text-[11px] text-zinc-500 leading-relaxed">
-      讀盤順序（小白版）：命宮看「你怎麼做事」→ 福德看「你怎麼快樂」→ 疾厄看「你怎麼耗損」→ 夫妻/交友看「你怎麼連結」。
-      四化是今年在哪裡更容易舒服/卡住的提示。
-    </div>
-  `;
+function findPalaceIndexByStarName(starName) {
+  if (!_lastChart) return -1;
+  return _lastChart.palaces.findIndex((p) => (p.majorStars || []).some((s) => s.name === starName));
 }
 
 function resetToInput() {
@@ -196,7 +119,6 @@ function deployTacticalMap() {
     return;
   }
 
-  // 顯示結果區
   document.getElementById("input-section")?.classList.add("hidden");
   document.getElementById("result-section")?.classList.remove("hidden");
   document.getElementById("btn-reset")?.classList.remove("hidden");
@@ -209,7 +131,6 @@ function deployTacticalMap() {
   let chart;
   try {
     if (calendar === "lunar") {
-      // lunar: byLunar(year, month, day, isLeapMonth, timeIndex, gender, fixLeap, locale?)
       chart = astro.byLunar(y, m, d, false, timeIdx, genderZh, true, "zh-TW");
     } else {
       chart = astro.bySolar(`${y}-${m}-${d}`, timeIdx, genderZh, true, "zh-TW");
@@ -237,10 +158,7 @@ function deployTacticalMap() {
   root.appendChild(centerHole);
   root.appendChild(svgOverlay);
 
-  // 命宮地支（iztro）
   const nominalBranch = chart.earthlyBranchOfSoulPalace;
-
-  // 找廉貞位置（畫對沖線）
   let lianZhenIdx = -1;
 
   chart.palaces.forEach((palace, idx) => {
@@ -263,7 +181,6 @@ function deployTacticalMap() {
     const minorWrap = document.createElement("div");
     minorWrap.className = "flex";
 
-    // 主星
     (palace.majorStars || []).forEach((s) => {
       if (s.name === "廉貞") lianZhenIdx = idx;
 
@@ -271,7 +188,6 @@ function deployTacticalMap() {
       star.className = "star-main";
       star.textContent = toSafeText(s.name);
 
-      // 本命四化（如果資料有）
       if (s.lunarSihua) {
         const tag = document.createElement("div");
         tag.className = "hua-tag hua-birth";
@@ -279,7 +195,6 @@ function deployTacticalMap() {
         star.appendChild(tag);
       }
 
-      // 2026 流年四化（固定映射）
       if (SIHUA_2026[s.name]) {
         const tag2 = document.createElement("div");
         tag2.className = "hua-tag hua-2026";
@@ -290,7 +205,6 @@ function deployTacticalMap() {
       majorWrap.appendChild(star);
     });
 
-    // 輔星
     (palace.minorStars || []).forEach((s) => {
       const star = document.createElement("div");
       star.className = "star-minor";
@@ -337,11 +251,10 @@ function deployTacticalMap() {
 
   updateAnalysis(chart, lianZhenIdx);
 
-  // NEW：渲染命格一分鐘摘要
   const profileEl = document.getElementById("profile-summary");
-  if (profileEl) profileEl.innerHTML = buildProfileSummaryHTML(chart);
+  if (profileEl) profileEl.innerHTML = buildProfileSummaryHTML();
 
-  // 預設選命宮（以宮名=命為主）
+  // 預設選命宮（宮名=命）
   const nominalIdx = chart.palaces.findIndex((p) => normalizePalaceName(p.name) === "命");
   if (nominalIdx >= 0) selectPalace(nominalIdx);
 
@@ -371,7 +284,11 @@ function selectPalace(idx) {
 }
 
 function renderPalaceDetail(palace, idx) {
-  const major = (palace.majorStars || []).map((s) => {
+  const majorsDirect = starsOfPalace(palace);
+  const borrowPack = getMajorStarsOrBorrow(idx);
+  const def = palaceDefByName(palace.name);
+
+  const majorHTML = (palace.majorStars || []).map((s) => {
     const birth = s.lunarSihua
       ? ` <span class="px-1.5 py-0.5 rounded bg-red-800/70 text-white text-[10px]">${toSafeText(s.lunarSihua)}</span>`
       : "";
@@ -384,12 +301,24 @@ function renderPalaceDetail(palace, idx) {
     </div>`;
   }).join("");
 
-  const minor = (palace.minorStars || []).map((s) =>
+  const minorHTML = (palace.minorStars || []).map((s) =>
     `<span class="inline-block mr-2 mb-2 px-2 py-1 border border-zinc-800 text-zinc-300 text-[11px]">${toSafeText(s.name)}</span>`
   ).join("");
 
   const detailEl = document.getElementById("palace-detail");
   if (!detailEl) return;
+
+  // 空宮處理
+  let emptyHint = "";
+  if (majorsDirect.length === 0 && borrowPack.mode === "borrow") {
+    const oppName = toSafeText(borrowPack.opp?.name);
+    const oppStars = borrowPack.majors.length ? borrowPack.majors.join("、") : "（仍無主星）";
+    emptyHint = `
+      <div class="mt-2 text-[11px] text-zinc-400">
+        <span class="text-zinc-300 font-bold">空宮</span>：${KB2026.empty_palace_copy.title}｜借對宮：<span class="text-zinc-200">${oppName}</span>（主星：${oppStars}）
+      </div>
+    `;
+  }
 
   detailEl.innerHTML = `
     <div class="flex items-start justify-between gap-3">
@@ -398,65 +327,258 @@ function renderPalaceDetail(palace, idx) {
         <div class="text-[11px] text-zinc-500 font-mono mt-1">
           ${toSafeText(palace.heavenlyStem)}${toSafeText(palace.earthlyBranch)} ｜ ${toSafeText(palace.changsheng12)}
         </div>
+        ${def ? `<div class="mt-2 text-[11px] text-zinc-300">場景：<span class="text-[#D4AF37] font-bold">${def.label}</span>｜${def.desc}</div>` : ""}
+        ${emptyHint}
       </div>
     </div>
 
     <div class="mt-4">
       <div class="text-[11px] text-zinc-400 mb-2">主星</div>
-      <div class="space-y-2">${major || `<div class="text-zinc-500 text-[11px]">（無資料）</div>`}</div>
+      <div class="space-y-2">${majorHTML || `<div class="text-zinc-500 text-[11px]">（空宮／請看借對宮主星提示）</div>`}</div>
     </div>
 
     <div class="mt-4">
       <div class="text-[11px] text-zinc-400 mb-2">輔星</div>
-      <div>${minor || `<div class="text-zinc-500 text-[11px]">（無資料）</div>`}</div>
+      <div>${minorHTML || `<div class="text-zinc-500 text-[11px]">（無資料）</div>`}</div>
+    </div>
+
+    ${buildLifeExplainHTML(idx)}
+  `;
+}
+
+function buildLifeExplainHTML(idx) {
+  const pack = getMajorStarsOrBorrow(idx);
+  const palace = pack.palace;
+  if (!palace) return "";
+
+  const def = palaceDefByName(palace.name);
+  const majors = pack.majors || [];
+  const tag = starTagForMajors(majors);
+
+  const key = normalizePalaceName(palace.name);
+  const huaLines = [];
+
+  // 本命四化（若 iztro 有）
+  for (const s of (palace.majorStars || [])) {
+    if (s.lunarSihua) huaLines.push(`本命 ${s.name} 化${s.lunarSihua}：${huaMeaning(s.lunarSihua) || ""}`);
+  }
+  // 2026 流年四化
+  for (const s of (palace.majorStars || [])) {
+    const hua = SIHUA_2026[s.name];
+    if (hua) huaLines.push(`2026 ${s.name} 化${hua}：${huaMeaning(hua) || ""}`);
+  }
+
+  // 疾厄：壓力反應（提醒語氣）
+  let stressBlock = "";
+  if (key === "疾厄" && majors.length) {
+    const notes = majors
+      .map((name) => KB2026.stress_reactions[name])
+      .filter(Boolean)
+      .slice(0, 2);
+    if (notes.length) {
+      stressBlock = `
+        <div class="mt-3 text-[11px] text-zinc-300">
+          <div class="text-zinc-400 mb-1">壓力反應提醒（非醫療診斷）</div>
+          - ${notes.join("<br/>- ")}
+        </div>
+      `;
+    }
+  }
+
+  // 行動建議
+  const ctas = (def?.cta || []).slice(0, 4);
+  const ctaHTML = ctas.length
+    ? `<div class="mt-3 text-[11px] text-zinc-300"><div class="text-zinc-400 mb-1">可執行小動作</div>- ${ctas.join("<br/>- ")}</div>`
+    : "";
+
+  const emptyExplain =
+    pack.mode === "borrow"
+      ? `<div class="mt-2 text-[11px] text-zinc-400">空宮說明：${KB2026.empty_palace_copy.desc}<br/>建議：${KB2026.empty_palace_copy.action}</div>`
+      : "";
+
+  const persona = tag
+    ? `<div class="mt-2 text-[12px] text-zinc-200">主星人設：<span class="text-[#D4AF37] font-bold">${tag.tag}</span>｜${tag.workplace}</div>`
+    : `<div class="mt-2 text-[12px] text-zinc-400">主星人設：尚未建立（可後續擴充）</div>`;
+
+  const huaText = huaLines.length
+    ? `- ${huaLines.join("<br/>- ")}`
+    : "（此宮沒有明顯四化標記時，重點回到場景＋你的行動策略。）";
+
+  return `
+    <div class="mt-4 border-t border-zinc-800 pt-4">
+      <div class="text-[11px] text-zinc-400 mb-2">新手白話（人生/性格）</div>
+
+      ${def ? `<div class="text-[12px] leading-relaxed text-zinc-200">
+        這是【${toSafeText(palace.name)}】：<span class="text-[#D4AF37] font-bold">${def.label}</span><br/>
+        你在乎的是：<span class="text-zinc-300">${def.cares}</span>
+      </div>` : ""}
+
+      ${emptyExplain}
+      ${persona}
+
+      <div class="mt-3 text-[11px] text-zinc-300">
+        <div class="text-zinc-400 mb-1">四化提示（今年的紅綠燈）</div>
+        ${huaText}
+      </div>
+
+      ${stressBlock}
+      ${ctaHTML}
     </div>
   `;
+}
 
-  // NEW：宮位小白說明（人生/性格）
-  detailEl.innerHTML += buildLifeExplainHTML(palace);
+function buildProfileSummaryHTML() {
+  if (!_lastChart) return `<div class="text-zinc-500 text-[11px]">請先啟動演算。</div>`;
+
+  const getIdxByPalaceKey = (k) =>
+    _lastChart.palaces.findIndex((p) => normalizePalaceName(p.name) === k);
+
+  const idxMing = getIdxByPalaceKey("命");
+  const idxFude = getIdxByPalaceKey("福德");
+  const idxJie = getIdxByPalaceKey("疾厄");
+  const idxFuqi = getIdxByPalaceKey("夫妻");
+  const idxFriends = getIdxByPalaceKey("交友");
+
+  const mingPack = getMajorStarsOrBorrow(idxMing);
+  const fudePack = getMajorStarsOrBorrow(idxFude);
+  const jiePack = getMajorStarsOrBorrow(idxJie);
+  const fuqiPack = getMajorStarsOrBorrow(idxFuqi);
+  const frPack = getMajorStarsOrBorrow(idxFriends);
+
+  const mingTag = starTagForMajors(mingPack.majors);
+  const jieTag = starTagForMajors(jiePack.majors);
+
+  // 2026：四化落宮定位
+  const idxJi = _lastLianZhenIdx; // 廉貞化忌所在宮（你盤面已算）
+  const idxLu = findPalaceIndexByStarName("天同"); // 天同化祿所在宮
+  const idxQuan = findPalaceIndexByStarName("天機"); // 天機化權
+  const idxKe = findPalaceIndexByStarName("文昌"); // 文昌化科
+
+  const jiName = idxJi >= 0 ? normalizePalaceName(_lastChart.palaces[idxJi].name) : null;
+  const luName = idxLu >= 0 ? normalizePalaceName(_lastChart.palaces[idxLu].name) : null;
+
+  const jiDef = jiName ? KB2026.palace_definitions[jiName] : null;
+  const luDef = luName ? KB2026.palace_definitions[luName] : null;
+
+  const title =
+    jiName === "田宅" && luName === "遷移"
+      ? "🌟 2026 年度導航：先蹲後跳的「系統重組年」"
+      : `🌟 2026 年度導航：先修「${jiDef?.label || "壓力區"}」再放大「${luDef?.label || "機會區"}」`;
+
+  const mingLine = mingTag
+    ? `你的底色：<span class="text-[#D4AF37] font-bold">${mingTag.tag}</span>（${toSafeText(mingPack.majors?.join("、") || "")}）`
+    : `你的底色：<span class="text-[#D4AF37] font-bold">${KB2026.empty_palace_copy.title}</span>（空宮可借對宮：${toSafeText(mingPack.opp?.name || "")}）`;
+
+  const jieLine = jieTag
+    ? `你的壓力反應：<span class="text-[#D4AF37] font-bold">${jieTag.tag}</span>（${toSafeText(jiePack.majors?.join("、") || "")}）`
+    : `你的壓力反應：以「場景」與「四化紅綠燈」判讀更準。`;
+
+  const linkLine = `你的連結（關係/社交）：夫妻 ${toSafeText(fuqiPack.majors?.join("、") || "空宮")} ／ 交友 ${toSafeText(frPack.majors?.join("、") || "空宮")}`;
+
+  const jiScene = jiDef ? `今年的坎：<span class="text-red-300 font-bold">${jiDef.label}</span>（${jiName}）` : `今年的坎：壓力點（忌）`;
+  const luScene = luDef ? `今年的光：<span class="text-green-300 font-bold">${luDef.label}</span>（${luName}）` : `今年的光：機會點（祿）`;
+
+  const jiAction = jiDef?.cta?.slice(0, 2).join("、") || "先補洞再衝刺";
+  const luAction = luDef?.cta?.slice(0, 2).join("、") || "增加曝光與合作";
+
+  // 紅綠燈列表（含權/科）
+  const traffic = [
+    idxLu >= 0 ? { hua: "祿", idx: idxLu } : null,
+    idxKe >= 0 ? { hua: "科", idx: idxKe } : null,
+    idxQuan >= 0 ? { hua: "權", idx: idxQuan } : null,
+    idxJi >= 0 ? { hua: "忌", idx: idxJi } : null,
+  ].filter(Boolean);
+
+  const trafficHTML = traffic.map((t) => {
+    const p = _lastChart.palaces[t.idx];
+    const k = normalizePalaceName(p.name);
+    const def = KB2026.palace_definitions[k];
+    const h = KB2026.hua_definitions[t.hua];
+    const label = def?.label || k;
+    const tone =
+      h.tone === "green" ? "text-green-300" :
+      h.tone === "yellow" ? "text-yellow-300" :
+      h.tone === "blue" ? "text-blue-300" :
+      "text-red-300";
+    return `<div class="text-[11px] text-zinc-400">
+      <span class="${tone} font-bold">${t.hua}（${h.status}）</span>｜${k}：${label}
+    </div>`;
+  }).join("");
+
+  return `
+    <div class="text-zinc-200 font-black mb-2">${title}</div>
+
+    <div class="text-[12px] text-zinc-300 leading-relaxed">
+      <div>${mingLine}</div>
+      <div class="mt-1">${linkLine}</div>
+      <div class="mt-1">${jieLine}</div>
+    </div>
+
+    <div class="mt-3 text-[12px] text-zinc-300 leading-relaxed">
+      <div>${jiScene} → 建議：<span class="text-zinc-200">${jiAction}</span></div>
+      <div class="mt-1">${luScene} → 建議：<span class="text-zinc-200">${luAction}</span></div>
+    </div>
+
+    <div class="mt-3 text-[11px] text-zinc-400">
+      <div class="text-zinc-500 mb-1">今年紅綠燈（先看順的，再看修煉，再看補洞）</div>
+      ${trafficHTML}
+    </div>
+
+    <div class="mt-3 text-[11px] text-zinc-500 leading-relaxed">
+      讀盤順序（小白版）：命宮看「你怎麼做事」→ 福德看「你怎麼快樂」→ 疾厄看「你怎麼耗損」→ 夫妻/交友看「你怎麼連結」。
+    </div>
+  `;
 }
 
 function updateAnalysis(chart, lzIdx) {
   const jiPalace = lzIdx >= 0 ? chart.palaces[lzIdx] : null;
   const luPalace = chart.palaces.find((p) => (p.majorStars || []).some((s) => s.name === "天同")) || null;
 
+  const jiKey = jiPalace ? normalizePalaceName(jiPalace.name) : null;
+  const luKey = luPalace ? normalizePalaceName(luPalace.name) : null;
+
+  const jiDef = jiKey ? KB2026.palace_definitions[jiKey] : null;
+  const luDef = luKey ? KB2026.palace_definitions[luKey] : null;
+
   const jiName = jiPalace ? jiPalace.name : "（未定位）";
   const luName = luPalace ? luPalace.name : "（未定位）";
 
+  const jiScene = jiDef ? `「${jiDef.label}」` : "壓力區";
+  const luScene = luDef ? `「${luDef.label}」` : "機會區";
+
   document.getElementById("aphorism-text").innerText =
     `2026 丙午年戰略重點在於「轉化」與「重組」。` +
-    `流年化忌（廉貞）落入你的【${jiName}】，代表該領域在 2026 年容易面臨結構性壓力：先修系統、先補洞，再談衝刺。` +
-    `而天同化祿進入【${luName}】，這裡是年度更容易出現「資源／合作／收入窗口」的突破口，適合把成果做成可複製的產品化流程。`;
+    `流年化忌（廉貞）落入你的【${jiName}】（${jiScene}），代表今年更像「補洞/修繕年」：先修系統、先補根基，再談衝刺。` +
+    `而天同化祿進入【${luName}】（${luScene}），這裡是年度更容易出現「資源／合作／好運窗口」的突破口：多走出去、多曝光、多連結，順勢擴張。`;
 
-  const months = buildMonthlyQuests(luName, jiName);
+  const months = buildMonthlyQuests(jiKey, luKey);
   document.getElementById("quest-list").innerHTML = months.map((q) => `
     <div class="quest-item">
-      <div class="text-[#D4AF37] font-bold mb-1">${q.m}｜戰略任務</div>
+      <div class="text-[#D4AF37] font-bold mb-1">${q.m}｜${q.theme}</div>
       <div class="text-zinc-400 leading-relaxed">${q.task}</div>
     </div>
   `).join("");
 }
 
-function buildMonthlyQuests(luName, jiName) {
-  const focus = {
-    lu: `（機會點：${luName}）`,
-    ji: `（壓力點：${jiName}）`
-  };
+function buildMonthlyQuests(jiKey, luKey) {
+  const jiLabel = jiKey ? (KB2026.palace_definitions[jiKey]?.label || jiKey) : "壓力區";
+  const luLabel = luKey ? (KB2026.palace_definitions[luKey]?.label || luKey) : "機會區";
 
-  return [
-    { m: "1 月",  task: `年度過渡期：清點資源、關掉不賺的支線，把 KPI 變成 2～3 個可執行指標。${focus.ji}` },
-    { m: "2 月",  task: `啟動月：挑一個「最能變現」的切入點做 MVP，上線後用數據迭代。${focus.lu}` },
-    { m: "3 月",  task: `擴散月：用合作／聯名／渠道換取曝光，建立「可重複成交」的內容漏斗。${focus.lu}` },
-    { m: "4 月",  task: `修正月：做一次成本結構盤點（時間/人力/錢），把卡住的流程拆解到可交付。${focus.ji}` },
-    { m: "5 月",  task: `權限月：把 SOP、權責、交付節點寫清楚，避免「人治」造成反覆返工。${focus.ji}` },
-    { m: "6 月",  task: `產品月：把成果包裝成可銷售的方案（清楚價目、交付範圍、保固條款）。${focus.lu}` },
-    { m: "7 月",  task: `轉換月：針對轉換率做優化：落地頁、報價結構、追蹤節點、客服腳本。${focus.lu}` },
-    { m: "8 月",  task: `防火月：檢查合約與風險點，替最脆弱的一環做備援（人/系統/資金）。${focus.ji}` },
-    { m: "9 月",  task: `品牌月：集中火力打造「你被記住的關鍵一句話」，統一視覺與訊息。${focus.lu}` },
-    { m: "10 月", task: `整併月：砍掉低效專案，保留最強的 1～2 條主幹，把資源壓到能贏的地方。${focus.ji}` },
-    { m: "11 月", task: `收割月：把年度成果做案例化（數據、前後對比、證言），用來打下一年度的單。${focus.lu}` },
-    { m: "12 月", task: `封存月：年度復盤（哪些賺錢、哪些耗能），把流程與知識庫整理成可複製模板。${focus.ji}` },
-  ];
+  return KB2026.monthly_strategy.map((it) => {
+    const m = `${it.month} 月`;
+    // 個人化拼貼：把「壓力/機會」塞回文案
+    let tail = "";
+    if (it.color === "red") tail = `（提醒：今年要特別顧「${jiLabel}」這塊）`;
+    else if (it.color === "green") tail = `（加分：把成果丟到「${luLabel}」舞台上）`;
+    else if (it.color === "yellow") tail = `（修煉：用專業把節奏拿回來）`;
+    else tail = `（穩定：用口碑與條理累積信用）`;
+
+    return {
+      m,
+      theme: it.theme,
+      task: `${it.desc} 行動：${it.action} ${tail}`,
+    };
+  });
 }
 
 function drawClashLine(idx) {
@@ -509,11 +631,7 @@ function drawClashLine(idx) {
   svg.appendChild(c2);
 }
 
-// 讓 HTML onclick 可呼叫（Vite module scope 不會自動變全域）
-window.deployTacticalMap = deployTacticalMap;
-window.resetToInput = resetToInput;
-window.scrollToTopQuests = scrollToTopQuests;
-
+// 讓 HTML onclick 可呼叫
 window.deployTacticalMap = deployTacticalMap;
 window.resetToInput = resetToInput;
 window.scrollToTopQuests = scrollToTopQuests;

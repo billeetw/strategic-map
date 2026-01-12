@@ -2,45 +2,36 @@ import "./style.css";
 import { astro } from "iztro";
 import { KB2026 } from "./kb_2026.js";
 
-/** =======================
- *  Config
- *  ======================= */
-const SIHUA_2026 =
-  KB2026?.annual_sihua_2026 || { 天同: "祿", 天機: "權", 文昌: "科", 廉貞: "忌" };
+const FORM_URL = "https://forms.gle/Vvs6U12TeMYtab8A6";
+const SIHUA_2026 = (KB2026 && KB2026.annual_sihua_2026) || {
+  天同: "祿",
+  天機: "權",
+  文昌: "科",
+  廉貞: "忌",
+};
 
-const CONSULT_URL = "https://forms.gle/Vvs6U12TeMYtab8A6";
-
-/** =======================
- *  State
- *  ======================= */
 let _lastChart = null;
 let _lastLianZhenIdx = -1;
 let _selectedPalaceIdx = -1;
-let _borrowOppIdx = -1;
 
-let _sheet = null;
-let _monthlyCtaTimer = null;
-
-/** =======================
- *  Helpers
- *  ======================= */
+// ---------- utils ----------
 function toSafeText(v) {
   return v === null || v === undefined ? "" : String(v);
 }
-
 function normalizePalaceName(name) {
   return (name || "").replace("宮", "");
 }
-
+function $(id) {
+  return document.getElementById(id);
+}
 function showError(msg) {
-  const box = document.getElementById("error-box");
+  const box = $("error-box");
   if (!box) return;
   box.textContent = msg;
   box.classList.remove("hidden");
 }
-
 function clearError() {
-  const box = document.getElementById("error-box");
+  const box = $("error-box");
   if (!box) return;
   box.textContent = "";
   box.classList.add("hidden");
@@ -49,8 +40,8 @@ function clearError() {
 // iztro timeIndex：0..12（含早/晚子）
 function timeIndexFromInput(tob) {
   const hour = parseInt((tob || "12:00").split(":")[0], 10);
-  if (hour === 0) return 0; // 早子
-  if (hour === 23) return 12; // 晚子
+  if (hour === 0) return 0;
+  if (hour === 23) return 12;
   return Math.floor((hour + 1) / 2);
 }
 
@@ -58,13 +49,11 @@ function daysInMonth(y, m) {
   return new Date(y, m, 0).getDate(); // m: 1..12
 }
 
-/** =======================
- *  DOB Selectors (mobile-friendly)
- *  ======================= */
+// ---------- DOB selectors ----------
 function initDOBSelectors() {
-  const yEl = document.getElementById("dob-year");
-  const mEl = document.getElementById("dob-month");
-  const dEl = document.getElementById("dob-day");
+  const yEl = $("dob-year");
+  const mEl = $("dob-month");
+  const dEl = $("dob-day");
   if (!yEl || !mEl || !dEl) return;
 
   const saved = localStorage.getItem("sm_dob");
@@ -119,37 +108,87 @@ function initDOBSelectors() {
 }
 
 function getDOBParts() {
-  const yEl = document.getElementById("dob-year");
-  const mEl = document.getElementById("dob-month");
-  const dEl = document.getElementById("dob-day");
+  const yEl = $("dob-year");
+  const mEl = $("dob-month");
+  const dEl = $("dob-day");
   if (yEl && mEl && dEl) {
     const y = parseInt(yEl.value, 10);
     const m = parseInt(mEl.value, 10);
     const d = parseInt(dEl.value, 10);
-    if ([y, m, d].every(Number.isFinite)) return { y, m, d };
+    if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) return { y, m, d };
   }
   return null;
 }
 
-/** =======================
- *  Scroll / Nav
- *  ======================= */
-function scrollToSection(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "start" });
+// ---------- KB helpers (defensive) ----------
+function palaceDefByName(palaceName) {
+  const key = normalizePalaceName(palaceName);
+  return (KB2026?.palace_definitions && KB2026.palace_definitions[key]) || null;
+}
+function huaDef(hua) {
+  return (KB2026?.hua_definitions && KB2026.hua_definitions[hua]) || null;
+}
+function emptyCopy() {
+  return KB2026?.empty_palace_copy || {
+    title: "鏡面模式（空宮）",
+    desc: "這不是沒有特質，而是你在這個領域特別容易因環境而調整策略。",
+    action: "建議看借對宮的主星，並用『場景＋今年紅綠燈』來做決策。",
+  };
+}
+function stressNote(starName) {
+  return (KB2026?.stress_reactions && KB2026.stress_reactions[starName]) || null;
+}
+function starProfile(key) {
+  return (KB2026?.star_profiles && KB2026.star_profiles[key]) || null;
 }
 
-/** =======================
- *  Bottom Sheet (mobile)
- *  ======================= */
+// ---------- palace data helpers ----------
+function starsOfPalace(palace) {
+  return (palace?.majorStars || []).map((s) => s.name).filter(Boolean);
+}
+
+function starTagForMajors(majors) {
+  if (!majors || majors.length === 0) return null;
+
+  // try combo first
+  if (majors.length >= 2) {
+    const combo1 = `${majors[0]}${majors[1]}`;
+    const combo2 = `${majors[1]}${majors[0]}`;
+    const hit = starProfile(combo1) || starProfile(combo2);
+    if (hit) return hit;
+  }
+  return starProfile(majors[0]) || null;
+}
+
+function getMajorStarsOrBorrow(idx) {
+  const palace = _lastChart?.palaces?.[idx];
+  if (!palace) return { mode: "none", palace: null, majors: [] };
+
+  const majors = starsOfPalace(palace);
+  if (majors.length) return { mode: "direct", palace, majors };
+
+  const oppIdx = (idx + 6) % 12;
+  const opp = _lastChart?.palaces?.[oppIdx];
+  const oppMajors = starsOfPalace(opp);
+
+  return { mode: "borrow", palace, opp, oppIdx, majors: oppMajors };
+}
+
+function findPalaceIndexByStarName(starName) {
+  if (!_lastChart) return -1;
+  return _lastChart.palaces.findIndex((p) => (p.majorStars || []).some((s) => s.name === starName));
+}
+
+// ---------- bottom sheet ----------
+let _sheet = null;
+
 function initBottomSheet() {
-  const root = document.getElementById("sheet-root");
-  const panel = document.getElementById("sheet-panel");
-  const backdrop = document.getElementById("sheet-backdrop");
-  const closeBtn = document.getElementById("sheet-close");
-  const title = document.getElementById("sheet-title");
-  const body = document.getElementById("sheet-body");
+  const root = $("sheet-root");
+  const panel = $("sheet-panel");
+  const backdrop = $("sheet-backdrop");
+  const closeBtn = $("sheet-close");
+  const title = $("sheet-title");
+  const body = $("sheet-body");
   if (!root || !panel || !backdrop || !closeBtn || !title || !body) return;
 
   _sheet = { root, panel, backdrop, closeBtn, title, body, isOpen: false };
@@ -169,6 +208,7 @@ function isMobileView() {
 
 function openBottomSheet({ title, html }) {
   if (!_sheet) return;
+
   _sheet.title.textContent = title || "宮位解析";
   _sheet.body.innerHTML = html || "";
 
@@ -194,87 +234,53 @@ function closeBottomSheet() {
   }, 220);
 }
 
-/** =======================
- *  KB helpers
- *  ======================= */
-function palaceDefByName(palaceName) {
-  const key = normalizePalaceName(palaceName);
-  return KB2026?.palace_definitions?.[key] || null;
+// ---------- navigation ----------
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
+window.scrollToSection = scrollToSection;
 
-function starsOfPalace(palace) {
-  return (palace?.majorStars || []).map((s) => s.name).filter(Boolean);
-}
-
-function starTagForMajors(majors) {
-  if (!majors || majors.length === 0) return null;
-  if (majors.length >= 2) {
-    const combo1 = `${majors[0]}${majors[1]}`;
-    const combo2 = `${majors[1]}${majors[0]}`;
-    const hit = KB2026?.star_profiles?.[combo1] || KB2026?.star_profiles?.[combo2];
-    if (hit) return hit;
-  }
-  return KB2026?.star_profiles?.[majors[0]] || null;
-}
-
-function getMajorStarsOrBorrow(idx) {
-  const palace = _lastChart?.palaces?.[idx];
-  if (!palace) return { mode: "none", palace: null, majors: [] };
-
-  const majors = starsOfPalace(palace);
-  if (majors.length) return { mode: "direct", palace, majors };
-
-  const oppIdx = (idx + 6) % 12;
-  const opp = _lastChart?.palaces?.[oppIdx];
-  const oppMajors = starsOfPalace(opp);
-
-  return { mode: "borrow", palace, opp, oppIdx, majors: oppMajors };
-}
-
-function huaDef(hua) {
-  return KB2026?.hua_definitions?.[hua] || null;
-}
-
-function findPalaceIndexByStarName(starName) {
-  if (!_lastChart) return -1;
-  return _lastChart.palaces.findIndex((p) => (p.majorStars || []).some((s) => s.name === starName));
-}
-
-/** =======================
- *  UI: Reset / Render
- *  ======================= */
+// ---------- core actions ----------
 function resetToInput() {
-  document.getElementById("result-section")?.classList.add("hidden");
-  document.getElementById("input-section")?.classList.remove("hidden");
-  document.getElementById("btn-reset")?.classList.add("hidden");
-  document.getElementById("btn-recalc")?.classList.add("hidden");
+  $("result-section")?.classList.add("hidden");
+  $("input-section")?.classList.remove("hidden");
+  $("btn-reset")?.classList.add("hidden");
+  $("btn-recalc")?.classList.add("hidden");
   clearError();
 
   _lastChart = null;
   _lastLianZhenIdx = -1;
   _selectedPalaceIdx = -1;
-  _borrowOppIdx = -1;
 
-  const detail = document.getElementById("palace-detail");
-  if (detail) detail.textContent = "尚未選擇宮位。";
+  const detail = $("palace-detail");
+  if (detail) detail.innerHTML = `<div class="muted">尚未選擇宮位。</div>`;
 
-  const profile = document.getElementById("profile-summary");
-  if (profile) profile.textContent = "請先啟動演算。";
+  const profile = $("profile-summary");
+  if (profile) profile.innerHTML = `<div class="muted">請先啟動演算。</div>`;
 
-  const aph = document.getElementById("aphorism-text");
+  const aph = $("aphorism-text");
   if (aph) aph.textContent = "";
 
-  const ql = document.getElementById("quest-list");
-  if (ql) ql.innerHTML = "";
+  const quest = $("quest-list");
+  if (quest) quest.innerHTML = "";
 }
+window.resetToInput = resetToInput;
+
+function scrollToTopQuests() {
+  const el = $("quest-list");
+  if (el) el.scrollTop = 0;
+}
+window.scrollToTopQuests = scrollToTopQuests;
 
 function deployTacticalMap() {
   clearError();
 
   const dob = getDOBParts();
-  const tob = document.getElementById("tob")?.value || "12:00";
-  const gender = document.getElementById("gender")?.value || "male";
-  const calendar = document.getElementById("calendar")?.value || "gregorian";
+  const tob = $("tob")?.value || "12:00";
+  const gender = $("gender")?.value || "male";
+  const calendar = $("calendar")?.value || "gregorian";
 
   if (!dob) {
     showError("請先選擇出生年月日。");
@@ -284,10 +290,10 @@ function deployTacticalMap() {
   localStorage.setItem("sm_dob", `${dob.y}-${dob.m}-${dob.d}`);
   localStorage.setItem("sm_tob", tob);
 
-  document.getElementById("input-section")?.classList.add("hidden");
-  document.getElementById("result-section")?.classList.remove("hidden");
-  document.getElementById("btn-reset")?.classList.remove("hidden");
-  document.getElementById("btn-recalc")?.classList.remove("hidden");
+  $("input-section")?.classList.add("hidden");
+  $("result-section")?.classList.remove("hidden");
+  $("btn-reset")?.classList.remove("hidden");
+  $("btn-recalc")?.classList.remove("hidden");
 
   const timeIdx = timeIndexFromInput(tob);
   const genderZh = gender === "female" ? "女" : "男";
@@ -308,39 +314,21 @@ function deployTacticalMap() {
 
   _lastChart = chart;
   _selectedPalaceIdx = -1;
-  _borrowOppIdx = -1;
 
-  renderChart(chart);
-  updateAnalysis(chart);
-  renderProfileSummary();
-
-  // 預設選命宮（宮名=命）
-  const nominalIdx = chart.palaces.findIndex((p) => normalizePalaceName(p.name) === "命");
-  if (nominalIdx >= 0) selectPalace(nominalIdx);
-
-  window.removeEventListener("resize", _onResizeRedraw);
-  window.addEventListener("resize", _onResizeRedraw);
-}
-
-function _onResizeRedraw() {
-  if (_lastChart) drawOverlay();
-}
-
-function renderChart(chart) {
-  const root = document.getElementById("map-root");
+  // rebuild chart
+  const root = $("map-root");
   const centerHole = root?.querySelector(".center-hole");
   const svgOverlay = root?.querySelector("#svg-overlay");
   if (!root || !centerHole || !svgOverlay) {
     showError("頁面結構缺失：找不到盤面容器（map-root）。");
     return;
   }
-
-  // 清空重建
   root.innerHTML = "";
   root.appendChild(centerHole);
   root.appendChild(svgOverlay);
 
   const nominalBranch = chart.earthlyBranchOfSoulPalace;
+
   let lianZhenIdx = -1;
 
   chart.palaces.forEach((palace, idx) => {
@@ -348,25 +336,39 @@ function renderChart(chart) {
     pDiv.id = `palace-${idx}`;
 
     const isNominal = palace.earthlyBranch === nominalBranch;
-    pDiv.className = `palace p-${palace.earthlyBranch} ${isNominal ? "is-nominal" : ""}`;
+    const majors = starsOfPalace(palace);
+    const isEmpty = majors.length === 0;
 
+    // energy classes
+    const huaSet = new Set();
+    (palace.majorStars || []).forEach((s) => {
+      const hua = SIHUA_2026[s.name];
+      if (hua) huaSet.add(hua);
+      if (s.name === "廉貞") lianZhenIdx = idx;
+    });
+
+    const cls = [
+      "palace",
+      `p-${palace.earthlyBranch}`,
+      isNominal ? "is-nominal" : "",
+      isEmpty ? "is-empty" : "",
+      huaSet.has("祿") ? "has-hua-lu" : "",
+      huaSet.has("權") ? "has-hua-quan" : "",
+      huaSet.has("科") ? "has-hua-ke" : "",
+      huaSet.has("忌") ? "has-hua-ji" : "",
+    ].filter(Boolean).join(" ");
+
+    pDiv.className = cls;
     pDiv.tabIndex = 0;
     pDiv.setAttribute("role", "button");
     pDiv.setAttribute("aria-label", `${toSafeText(palace.name)} 宮`);
 
-    // Energy classes (annual sihua)
-    const huaSet = new Set(
-      (palace.majorStars || [])
-        .map((s) => SIHUA_2026[s.name] || "")
-        .filter(Boolean)
-    );
-    if (huaSet.has("祿")) pDiv.classList.add("has-lu");
-    if (huaSet.has("權")) pDiv.classList.add("has-quan");
-    if (huaSet.has("科")) pDiv.classList.add("has-ke");
-    if (huaSet.has("忌")) pDiv.classList.add("has-ji");
-
-    // Borrow mark (空宮)
-    if ((palace.majorStars || []).length === 0) pDiv.classList.add("is-borrow");
+    if (isEmpty) {
+      const b = document.createElement("div");
+      b.className = "borrow-badge";
+      b.textContent = "🔗";
+      pDiv.appendChild(b);
+    }
 
     const flex = document.createElement("div");
     flex.className = "flex h-full";
@@ -377,45 +379,28 @@ function renderChart(chart) {
     const minorWrap = document.createElement("div");
     minorWrap.className = "flex";
 
-    // 主星（若空宮，顯示借對宮主星為括號 + 半透明）
-    const majors = palace.majorStars || [];
-    if (majors.length) {
-      majors.forEach((s) => {
-        if (s.name === "廉貞") lianZhenIdx = idx;
-
-        const star = document.createElement("div");
-        star.className = "star-main";
-        star.textContent = toSafeText(s.name);
-
-        if (s.lunarSihua) {
-          const tag = document.createElement("div");
-          tag.className = "hua-tag hua-birth";
-          tag.textContent = `本命${toSafeText(s.lunarSihua)}`;
-          star.appendChild(tag);
-        }
-
-        if (SIHUA_2026[s.name]) {
-          const hua = SIHUA_2026[s.name];
-          const icon = hua === "祿" ? "▲" : hua === "忌" ? "⚠" : hua === "權" ? "◆" : "●";
-          const tag2 = document.createElement("div");
-          tag2.className = "hua-tag hua-2026";
-          tag2.textContent = `2026${hua}${icon}`;
-          star.appendChild(tag2);
-        }
-
-        majorWrap.appendChild(star);
-      });
-    } else {
-      const opp = chart.palaces[(idx + 6) % 12];
-      const oppMajors = (opp?.majorStars || []).map((x) => x.name).filter(Boolean);
-      const text = oppMajors.length ? `(${oppMajors.join("、")})` : "(—)";
+    // major stars
+    (palace.majorStars || []).forEach((s) => {
       const star = document.createElement("div");
-      star.className = "star-main borrowed";
-      star.textContent = text;
-      majorWrap.appendChild(star);
-    }
+      star.className = "star-main";
+      star.textContent = toSafeText(s.name);
 
-    // 輔星
+      if (s.lunarSihua) {
+        const tag = document.createElement("div");
+        tag.className = "hua-tag hua-birth";
+        tag.textContent = toSafeText(s.lunarSihua);
+        star.appendChild(tag);
+      }
+      if (SIHUA_2026[s.name]) {
+        const tag2 = document.createElement("div");
+        tag2.className = "hua-tag hua-2026";
+        tag2.textContent = toSafeText(SIHUA_2026[s.name]);
+        star.appendChild(tag2);
+      }
+      majorWrap.appendChild(star);
+    });
+
+    // minor stars
     (palace.minorStars || []).forEach((s) => {
       const star = document.createElement("div");
       star.className = "star-minor";
@@ -456,16 +441,41 @@ function renderChart(chart) {
 
   _lastLianZhenIdx = lianZhenIdx;
 
-  // Center texts
-  const b = document.getElementById("bureau-text");
-  if (b) b.innerText = toSafeText(chart.fiveElementsClass);
+  $("bureau-text").innerText = toSafeText(chart.fiveElementsClass);
+  $("destiny-text").innerText = `${toSafeText(chart.chineseDate)} 生 / 命主 ${toSafeText(chart.soul)}`;
 
-  const d = document.getElementById("destiny-text");
-  if (d) d.innerText = `${toSafeText(chart.chineseDate)} 生 / 命主 ${toSafeText(chart.soul)}`;
+  updateAnnualAndMonthly(chart, lianZhenIdx);
+
+  const profileEl = $("profile-summary");
+  if (profileEl) profileEl.innerHTML = buildProfileSummaryHTML();
+
+  // default select 命宮（宮名=命）
+  const nominalIdx = chart.palaces.findIndex((p) => normalizePalaceName(p.name) === "命");
+  if (nominalIdx >= 0) selectPalace(nominalIdx);
 
   drawOverlay();
+
+  window.removeEventListener("resize", _onResizeRedraw);
+  window.addEventListener("resize", _onResizeRedraw);
+
+  // monthly CTA fade in after 2s (when results rendered)
+  const cta = $("cta-monthly");
+  if (cta) {
+    cta.classList.remove("cta-show");
+    cta.classList.add("cta-hidden");
+    setTimeout(() => {
+      cta.classList.remove("cta-hidden");
+      cta.classList.add("cta-show");
+    }, 2000);
+  }
+}
+window.deployTacticalMap = deployTacticalMap;
+
+function _onResizeRedraw() {
+  if (_lastChart) drawOverlay();
 }
 
+// ---------- selection + render ----------
 function selectPalace(idx) {
   _selectedPalaceIdx = idx;
 
@@ -479,133 +489,346 @@ function selectPalace(idx) {
   const palace = _lastChart?.palaces?.[idx];
   if (!palace) return;
 
-  const pack = getMajorStarsOrBorrow(idx);
-  _borrowOppIdx = pack.mode === "borrow" ? pack.oppIdx : -1;
-
   const html = buildPalaceDetailHTML(palace, idx);
+
   if (isMobileView()) {
-    openBottomSheet({ title: toSafeText(palace.name), html });
+    openBottomSheet({ title: `${toSafeText(palace.name)}｜宮位解析`, html });
   } else {
-    const detailEl = document.getElementById("palace-detail");
+    const detailEl = $("palace-detail");
     if (detailEl) detailEl.innerHTML = html;
   }
 
-  drawOverlay();
+  drawOverlay(); // include borrow line if needed
 }
 
 function buildPalaceDetailHTML(palace, idx) {
-  const def = palaceDefByName(palace.name);
-  const pack = getMajorStarsOrBorrow(idx);
-  const majors = pack.majors || [];
-  const persona = starTagForMajors(majors);
-
   const majorsDirect = starsOfPalace(palace);
-  const isEmpty = majorsDirect.length === 0;
+  const pack = getMajorStarsOrBorrow(idx);
+  const def = palaceDefByName(palace.name);
 
-  // Level 2: tags + 3 bullets
-  const bullets = [];
-  if (def?.cta?.length) bullets.push(...def.cta.slice(0, 3));
-  if (bullets.length < 3) {
-    bullets.push("先把這一宮的『最耗能點』列出來，避免用意志力硬扛。");
-    bullets.push("把目標縮到一個可交付的小步驟，先完成再優化。");
-  }
-  const bulletsHTML = bullets.slice(0, 3).map((t) => `<li>• ${toSafeText(t)}</li>`).join("");
-
-  // Hua hints (annual on this palace)
-  const annualHuaLines = (palace.majorStars || [])
-    .map((s) => (SIHUA_2026[s.name] ? `${s.name} 化${SIHUA_2026[s.name]}` : ""))
-    .filter(Boolean);
-
-  const huaText = annualHuaLines.length
-    ? annualHuaLines.map((x) => `• 2026：${x}（${toSafeText(huaDef(x.slice(-1))?.status || "")}）`).join("<br/>")
-    : "• 2026：此宮未出現明顯四化標記，重點回到『場景＋你的行動策略』。";
-
-  const emptyExplain =
-    isEmpty && pack.mode === "borrow"
-      ? `<div class="mt-2 text-[12px] text-zinc-400 leading-relaxed">
-          <span class="text-zinc-200 font-black">空宮 🔗（借星）</span>：不是「沒有」，而是你在這個領域更像「環境映射型」——會依照對手與情境調整打法。<br/>
-          借對宮：<span class="text-zinc-200 font-bold">${toSafeText(pack.opp?.name)}</span>（主星：${(pack.majors || []).join("、") || "—"}）
-        </div>`
+  const majorHTML = (palace.majorStars || []).map((s) => {
+    const birth = s.lunarSihua
+      ? ` <span style="margin-left:6px;padding:2px 6px;border-radius:8px;background:rgba(196,30,58,0.6);font-size:11px;">${toSafeText(s.lunarSihua)}</span>`
       : "";
+    const ann = SIHUA_2026[s.name]
+      ? ` <span style="margin-left:6px;padding:2px 6px;border-radius:8px;background:rgba(30,64,175,0.6);font-size:11px;">${toSafeText(SIHUA_2026[s.name])}</span>`
+      : "";
+    return `<div style="display:flex;align-items:center;gap:8px;">
+      <div style="color:var(--gold);font-weight:900;">${toSafeText(s.name)}</div>
+      <div>${birth}${ann}</div>
+    </div>`;
+  }).join("");
 
-  // Level 3: long read in details
-  const longRead = `
-    <details class="mt-4 border border-zinc-800 rounded-lg p-3">
-      <summary class="cursor-pointer text-[12px] text-zinc-200 font-black">
-        查看完整 2026 攻略（延伸閱讀）
-      </summary>
-      <div class="mt-2 text-[12px] text-zinc-400 leading-relaxed">
-        ${def ? `
-          <div><span class="text-zinc-200 font-bold">場景標籤：</span>${toSafeText(def.label)}｜${toSafeText(def.desc)}</div>
-          <div class="mt-2"><span class="text-zinc-200 font-bold">你在乎的是：</span>${toSafeText(def.cares || "")}</div>
-        ` : `<div>（尚未建立此宮位的 KB 資料）</div>`}
-        <div class="mt-3"><span class="text-zinc-200 font-bold">四化提示：</span><br/>${huaText}</div>
-        <div class="mt-3">
-          <a class="underline text-[#D4AF37] font-black" href="${CONSULT_URL}" target="_blank" rel="noopener noreferrer">
-            需要把這宮變成「可執行清單」？申請深度諮詢（NT$3600） ↗
-          </a>
-        </div>
+  const minorHTML = (palace.minorStars || []).map((s) =>
+    `<span style="display:inline-block;margin:0 8px 8px 0;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-size:12px;color:rgba(255,255,255,0.75);">${toSafeText(s.name)}</span>`
+  ).join("");
+
+  let emptyHint = "";
+  if (majorsDirect.length === 0 && pack.mode === "borrow") {
+    const oppName = toSafeText(pack.opp?.name);
+    const oppStars = pack.majors.length ? pack.majors.join("、") : "（仍無主星）";
+    const ec = emptyCopy();
+    emptyHint = `
+      <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.72);">
+        <b style="color:rgba(255,255,255,0.9);">空宮</b>：${ec.title}｜
+        借對宮：<b style="color:rgba(255,255,255,0.9);">${oppName}</b>（主星：${oppStars}）
       </div>
-    </details>
-  `;
+    `;
+  }
 
   return `
-    <div class="text-zinc-100 font-black text-[14px] md:text-[15px]">
-      ${toSafeText(palace.name)} <span class="text-[12px] text-zinc-500">#${idx}</span>
-    </div>
-    <div class="text-[12px] text-zinc-500 font-mono mt-1">
-      ${toSafeText(palace.heavenlyStem)}${toSafeText(palace.earthlyBranch)} ｜ ${toSafeText(palace.changsheng12)}
-    </div>
-
-    ${def ? `<div class="mt-2 text-[13px] text-zinc-200 leading-relaxed">
-      新手白話：這是【${toSafeText(palace.name)}】＝<span class="text-[#D4AF37] font-black">${toSafeText(def.label)}</span><br/>
-      核心：<span class="text-zinc-300">${toSafeText(def.cares || "")}</span>
-    </div>` : ""}
-
-    ${emptyExplain}
-
-    <div class="mt-3 p-3 rounded-lg border border-zinc-800 bg-zinc-900/30">
-      <div class="text-[12px] text-zinc-400 mb-1">戰略標籤（先懂這 3 句就夠）</div>
-      ${persona ? `<div class="text-[13px] text-zinc-200">
-        主星人設：<span class="text-[#D4AF37] font-black">${toSafeText(persona.tag)}</span>
-        <span class="text-zinc-400">（${toSafeText(majors.join("、")) || "—"}）</span>
+    <div>
+      <div style="display:flex;justify-content:space-between;gap:10px;">
+        <div>
+          <div style="font-weight:900;font-size:16px;">${toSafeText(palace.name)} <span style="color:rgba(255,255,255,0.5);font-size:12px;">#${idx}</span></div>
+          <div style="margin-top:4px;color:rgba(255,255,255,0.55);font-size:12px;">
+            ${toSafeText(palace.heavenlyStem)}${toSafeText(palace.earthlyBranch)} ｜ ${toSafeText(palace.changsheng12)}
+          </div>
+          ${def ? `<div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.86);">
+            場景：<b style="color:var(--gold);">${def.label}</b>｜${def.desc}
+          </div>` : ""}
+          ${emptyHint}
+        </div>
       </div>
-      <div class="text-[12px] text-zinc-400 mt-1">${toSafeText(persona.workplace || persona.logic || "")}</div>` : `
-      <div class="text-[12px] text-zinc-400">主星人設：尚未建立（可後續擴充）</div>`}
 
-      <ul class="mt-2 text-[13px] text-zinc-300 leading-relaxed">
-        ${bulletsHTML}
-      </ul>
+      <div style="margin-top:12px;">
+        <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;">主星</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${majorHTML || `<div style="font-size:12px;color:rgba(255,255,255,0.55);">（空宮／請看借對宮主星提示）</div>`}
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;">輔星</div>
+        <div>${minorHTML || `<div style="font-size:12px;color:rgba(255,255,255,0.55);">（無資料）</div>`}</div>
+      </div>
+
+      ${buildLifeExplainHTML(idx)}
     </div>
-
-    <div class="mt-3 text-[12px] text-zinc-400 leading-relaxed">
-      <div class="text-zinc-500 mb-1">四化提示（今年的紅綠燈）</div>
-      ${huaText}
-    </div>
-
-    ${longRead}
   `;
 }
 
-/** =======================
- *  Overlay: Clash + Borrow line
- *  ======================= */
+function buildLifeExplainHTML(idx) {
+  const pack = getMajorStarsOrBorrow(idx);
+  const palace = pack.palace;
+  if (!palace) return "";
+
+  const def = palaceDefByName(palace.name);
+  const majors = pack.majors || [];
+  const tag = starTagForMajors(majors);
+  const key = normalizePalaceName(palace.name);
+
+  // hua lines (annual only: based on SIHUA_2026 mapping)
+  const huaLines = [];
+  for (const s of (palace.majorStars || [])) {
+    const hua = SIHUA_2026[s.name];
+    if (hua) {
+      const hd = huaDef(hua);
+      huaLines.push(`2026 ${s.name} 化${hua}：${hd ? `${hd.status}｜${hd.guidance}` : "（提示）"}`);
+    }
+  }
+
+  let stressBlock = "";
+  if (key === "疾厄" && majors.length) {
+    const notes = majors.map(stressNote).filter(Boolean).slice(0, 2);
+    if (notes.length) {
+      stressBlock = `
+        <div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.82);">
+          <div style="color:rgba(255,255,255,0.55);margin-bottom:4px;">壓力反應提醒（非醫療診斷）</div>
+          - ${notes.join("<br/>- ")}
+        </div>
+      `;
+    }
+  }
+
+  const ctas = (def?.cta || []).slice(0, 4);
+  const ctaHTML = ctas.length
+    ? `<div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.82);">
+        <div style="color:rgba(255,255,255,0.55);margin-bottom:4px;">可執行小動作</div>
+        - ${ctas.join("<br/>- ")}
+      </div>`
+    : "";
+
+  const ec = emptyCopy();
+  const emptyExplain =
+    pack.mode === "borrow"
+      ? `<div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.6);">
+          空宮說明：${ec.desc}<br/>建議：${ec.action}
+        </div>`
+      : "";
+
+  const persona = tag
+    ? `<div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.9);">
+        主星人設：<b style="color:var(--gold);">${tag.tag}</b>｜${tag.workplace}
+      </div>`
+    : `<div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.6);">
+        主星人設：尚未建立（可後續擴充）
+      </div>`;
+
+  const huaText = huaLines.length
+    ? `- ${huaLines.join("<br/>- ")}`
+    : "（此宮今年沒有明顯四化標記時，重點回到：場景＋你的行動策略。）";
+
+  return `
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);">
+      <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:8px;">新手白話（人生/性格）</div>
+
+      ${def ? `<div style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.9);">
+        這是【${toSafeText(palace.name)}】：<b style="color:var(--gold);">${def.label}</b><br/>
+        你在乎的是：<span style="color:rgba(255,255,255,0.75);">${def.cares}</span>
+      </div>` : ""}
+
+      ${emptyExplain}
+      ${persona}
+
+      <div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.82);">
+        <div style="color:rgba(255,255,255,0.55);margin-bottom:4px;">四化提示（今年的紅綠燈）</div>
+        ${huaText}
+      </div>
+
+      ${stressBlock}
+      ${ctaHTML}
+
+      <div style="margin-top:12px;">
+        <a href="${FORM_URL}" target="_blank" rel="noreferrer"
+           style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:10px 12px;border-radius:12px;border:1px solid rgba(212,175,55,0.35);background:rgba(212,175,55,0.08);color:rgba(255,255,255,0.92);font-weight:900;">
+          需要更深一層策略？申請 1 對 1（NT$3600）↗
+        </a>
+      </div>
+    </div>
+  `;
+}
+
+// ---------- profile summary ----------
+function buildProfileSummaryHTML() {
+  if (!_lastChart) return `<div class="muted">請先啟動演算。</div>`;
+
+  const getIdxByPalaceKey = (k) =>
+    _lastChart.palaces.findIndex((p) => normalizePalaceName(p.name) === k);
+
+  const idxMing = getIdxByPalaceKey("命");
+  const idxJie = getIdxByPalaceKey("疾厄");
+  const idxFuqi = getIdxByPalaceKey("夫妻");
+  const idxFriends = getIdxByPalaceKey("交友");
+
+  const mingPack = getMajorStarsOrBorrow(idxMing);
+  const jiePack = getMajorStarsOrBorrow(idxJie);
+  const fuqiPack = getMajorStarsOrBorrow(idxFuqi);
+  const frPack = getMajorStarsOrBorrow(idxFriends);
+
+  const mingTag = starTagForMajors(mingPack.majors);
+  const jieTag = starTagForMajors(jiePack.majors);
+
+  const idxJi = _lastLianZhenIdx; // 廉貞化忌所在宮
+  const idxLu = findPalaceIndexByStarName("天同"); // 天同化祿
+  const idxQuan = findPalaceIndexByStarName("天機"); // 天機化權
+  const idxKe = findPalaceIndexByStarName("文昌"); // 文昌化科
+
+  const jiKey = idxJi >= 0 ? normalizePalaceName(_lastChart.palaces[idxJi].name) : null;
+  const luKey = idxLu >= 0 ? normalizePalaceName(_lastChart.palaces[idxLu].name) : null;
+
+  const jiDef = jiKey ? palaceDefByName(jiKey) : null;
+  const luDef = luKey ? palaceDefByName(luKey) : null;
+
+  const title =
+    jiKey === "田宅" && luKey === "遷移"
+      ? "🌟 2026 年度導航：先蹲後跳的「系統重組年」"
+      : `🌟 2026 年度導航：先修「${jiDef?.label || jiKey || "壓力區"}」再放大「${luDef?.label || luKey || "機會區"}」`;
+
+  const mingLine = mingTag
+    ? `你的底色：<b style="color:var(--gold);">${mingTag.tag}</b>（${toSafeText(mingPack.majors?.join("、") || "")}）`
+    : `你的底色：<b style="color:var(--gold);">${emptyCopy().title}</b>（空宮可借對宮：${toSafeText(mingPack.opp?.name || "")}）`;
+
+  const jieLine = jieTag
+    ? `你的壓力反應：<b style="color:var(--gold);">${jieTag.tag}</b>（${toSafeText(jiePack.majors?.join("、") || "")}）`
+    : `你的壓力反應：以「場景」與「今年紅綠燈」判讀更準。`;
+
+  const linkLine = `你的連結（關係/社交）：夫妻 ${toSafeText(fuqiPack.majors?.join("、") || "空宮")} ／ 交友 ${toSafeText(frPack.majors?.join("、") || "空宮")}`;
+
+  const jiScene = jiDef ? `今年的坎：<b style="color:rgba(248,113,113,0.95);">${jiDef.label}</b>（${jiKey}）` : `今年的坎：壓力點（忌）`;
+  const luScene = luDef ? `今年的光：<b style="color:rgba(74,222,128,0.95);">${luDef.label}</b>（${luKey}）` : `今年的光：機會點（祿）`;
+
+  const jiAction = jiDef?.cta?.slice(0, 2).join("、") || "先補洞再衝刺";
+  const luAction = luDef?.cta?.slice(0, 2).join("、") || "增加曝光與合作";
+
+  const traffic = [
+    idxLu >= 0 ? { hua: "祿", idx: idxLu } : null,
+    idxKe >= 0 ? { hua: "科", idx: idxKe } : null,
+    idxQuan >= 0 ? { hua: "權", idx: idxQuan } : null,
+    idxJi >= 0 ? { hua: "忌", idx: idxJi } : null,
+  ].filter(Boolean);
+
+  const trafficHTML = traffic.map((t) => {
+    const p = _lastChart.palaces[t.idx];
+    const k = normalizePalaceName(p.name);
+    const def = palaceDefByName(k);
+    const hd = huaDef(t.hua);
+    const label = def?.label || k;
+    const tone = hd?.tone || (t.hua === "忌" ? "red" : "green");
+    const color =
+      tone === "green" ? "rgba(74,222,128,0.95)" :
+      tone === "yellow" ? "rgba(250,204,21,0.95)" :
+      tone === "blue" ? "rgba(96,165,250,0.95)" :
+      "rgba(248,113,113,0.95)";
+    return `<div style="font-size:12px;color:rgba(255,255,255,0.65);">
+      <b style="color:${color};">${t.hua}（${hd?.status || "提示"}）</b>｜${k}：${label}
+    </div>`;
+  }).join("");
+
+  return `
+    <div style="font-weight:900;margin-bottom:8px;">${title}</div>
+
+    <div style="font-size:14px;color:rgba(255,255,255,0.86);line-height:1.7;">
+      <div>${mingLine}</div>
+      <div style="margin-top:4px;">${linkLine}</div>
+      <div style="margin-top:4px;">${jieLine}</div>
+    </div>
+
+    <div style="margin-top:10px;font-size:14px;color:rgba(255,255,255,0.86);line-height:1.7;">
+      <div>${jiScene} → 建議：<span style="color:rgba(255,255,255,0.92);">${jiAction}</span></div>
+      <div style="margin-top:4px;">${luScene} → 建議：<span style="color:rgba(255,255,255,0.92);">${luAction}</span></div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">今年紅綠燈（先看順的，再看修煉，再看補洞）</div>
+      ${trafficHTML}
+    </div>
+
+    <div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.55);line-height:1.6;">
+      讀盤順序（小白版）：命宮看「你怎麼做事」→ 福德看「你怎麼快樂」→ 疾厄看「你怎麼耗損」→ 夫妻/交友看「你怎麼連結」。
+    </div>
+  `;
+}
+
+// ---------- annual + monthly ----------
+function updateAnnualAndMonthly(chart, lzIdx) {
+  const jiPalace = lzIdx >= 0 ? chart.palaces[lzIdx] : null;
+  const luPalace = chart.palaces.find((p) => (p.majorStars || []).some((s) => s.name === "天同")) || null;
+
+  const jiKey = jiPalace ? normalizePalaceName(jiPalace.name) : null;
+  const luKey = luPalace ? normalizePalaceName(luPalace.name) : null;
+
+  const jiDef = jiKey ? palaceDefByName(jiKey) : null;
+  const luDef = luKey ? palaceDefByName(luKey) : null;
+
+  const jiName = jiPalace ? jiPalace.name : "（未定位）";
+  const luName = luPalace ? luPalace.name : "（未定位）";
+
+  const jiScene = jiDef ? `「${jiDef.label}」` : "壓力區";
+  const luScene = luDef ? `「${luDef.label}」` : "機會區";
+
+  $("aphorism-text").textContent =
+    `2026 丙午年戰略重點在於「轉化」與「重組」。` +
+    `流年化忌（廉貞）落入你的【${jiName}】（${jiScene}），今年更像「補洞/修繕年」：先修系統、先補根基，再談衝刺。` +
+    `而天同化祿進入【${luName}】（${luScene}），這裡是年度更容易出現「資源／合作／好運窗口」的突破口：多走出去、多曝光、多連結，順勢擴張。`;
+
+  const months = buildMonthlyQuests(jiKey, luKey);
+  $("quest-list").innerHTML = months.map((q) => `
+    <div class="quest-item">
+      <div style="color:var(--gold);font-weight:900;margin-bottom:6px;">${q.m}｜${q.theme}</div>
+      <div style="color:rgba(255,255,255,0.70);line-height:1.6;">${q.task}</div>
+    </div>
+  `).join("");
+}
+
+function buildMonthlyQuests(jiKey, luKey) {
+  const jiLabel = jiKey ? (palaceDefByName(jiKey)?.label || jiKey) : "壓力區";
+  const luLabel = luKey ? (palaceDefByName(luKey)?.label || luKey) : "機會區";
+
+  const list = KB2026?.monthly_strategy || [
+    { month: 1, theme: "資源清點", color: "yellow", desc: "年度過渡期，關閉不賺錢的支線。", action: "精簡 KPI" },
+    { month: 2, theme: "啟動測試", color: "green", desc: "執行 MVP 測試，用數據快速迭代。", action: "做一版測試上線" },
+  ];
+
+  return list.map((it) => {
+    const m = `${it.month} 月`;
+    let tail = "";
+    if (it.color === "red") tail = `（提醒：今年要特別顧「${jiLabel}」）`;
+    else if (it.color === "green") tail = `（加分：把成果丟到「${luLabel}」舞台）`;
+    else if (it.color === "yellow") tail = `（修煉：用專業拿回節奏）`;
+    else tail = `（穩定：用口碑與條理累積信用）`;
+
+    return { m, theme: it.theme, task: `${it.desc} 行動：${it.action} ${tail}` };
+  });
+}
+
+// ---------- overlay lines (clash + borrow) ----------
 function drawOverlay() {
-  const svg = document.getElementById("svg-overlay");
-  const root = document.getElementById("map-root");
+  const svg = $("svg-overlay");
+  const root = $("map-root");
   if (!svg || !root) return;
 
   svg.innerHTML = "";
 
   const container = root.getBoundingClientRect();
 
-  // 1) Clash line (廉貞所在宮 vs 對宮)
+  // 1) red dashed line: 廉貞化忌所在宮 → 對宮
   if (_lastLianZhenIdx >= 0) {
-    const el1 = document.getElementById(`palace-${_lastLianZhenIdx}`);
-    const el2 = document.getElementById(`palace-${(_lastLianZhenIdx + 6) % 12}`);
-    if (el1 && el2) {
-      const r1 = el1.getBoundingClientRect();
-      const r2 = el2.getBoundingClientRect();
+    const a = document.getElementById(`palace-${_lastLianZhenIdx}`);
+    const b = document.getElementById(`palace-${(_lastLianZhenIdx + 6) % 12}`);
+    if (a && b) {
+      const r1 = a.getBoundingClientRect();
+      const r2 = b.getBoundingClientRect();
       const x1 = r1.left - container.left + r1.width / 2;
       const y1 = r1.top - container.top + r1.height / 2;
       const x2 = r2.left - container.left + r2.width / 2;
@@ -624,188 +847,36 @@ function drawOverlay() {
     }
   }
 
-  // 2) Borrow line (selected empty palace -> opposite)
-  if (_selectedPalaceIdx >= 0 && _borrowOppIdx >= 0) {
-    const el1 = document.getElementById(`palace-${_selectedPalaceIdx}`);
-    const el2 = document.getElementById(`palace-${_borrowOppIdx}`);
-    if (el1 && el2) {
-      const r1 = el1.getBoundingClientRect();
-      const r2 = el2.getBoundingClientRect();
-      const x1 = r1.left - container.left + r1.width / 2;
-      const y1 = r1.top - container.top + r1.height / 2;
-      const x2 = r2.left - container.left + r2.width / 2;
-      const y2 = r2.top - container.top + r2.height / 2;
+  // 2) gold thin line: if selected palace is empty → opposite (borrow)
+  if (_selectedPalaceIdx >= 0 && _lastChart) {
+    const p = _lastChart.palaces[_selectedPalaceIdx];
+    const majors = starsOfPalace(p);
+    if (majors.length === 0) {
+      const a = document.getElementById(`palace-${_selectedPalaceIdx}`);
+      const b = document.getElementById(`palace-${(_selectedPalaceIdx + 6) % 12}`);
+      if (a && b) {
+        const r1 = a.getBoundingClientRect();
+        const r2 = b.getBoundingClientRect();
+        const x1 = r1.left - container.left + r1.width / 2;
+        const y1 = r1.top - container.top + r1.height / 2;
+        const x2 = r2.left - container.left + r2.width / 2;
+        const y2 = r2.top - container.top + r2.height / 2;
 
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("x1", x1);
-      line.setAttribute("y1", y1);
-      line.setAttribute("x2", x2);
-      line.setAttribute("y2", y2);
-      line.setAttribute("stroke", "#D4AF37");
-      line.setAttribute("stroke-width", "1.4");
-      line.setAttribute("stroke-dasharray", "3,5");
-      line.setAttribute("opacity", "0.35");
-      svg.appendChild(line);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("stroke", "#D4AF37");
+        line.setAttribute("stroke-width", "1.2");
+        line.setAttribute("opacity", "0.55");
+        svg.appendChild(line);
+      }
     }
   }
 }
 
-/** =======================
- *  Profile summary + Annual + Monthly
- *  ======================= */
-function renderProfileSummary() {
-  const el = document.getElementById("profile-summary");
-  if (!el) return;
-  if (!_lastChart) {
-    el.textContent = "請先啟動演算。";
-    return;
-  }
-
-  const getIdx = (k) => _lastChart.palaces.findIndex((p) => normalizePalaceName(p.name) === k);
-
-  const idxMing = getIdx("命");
-  const idxFude = getIdx("福德");
-  const idxJie = getIdx("疾厄");
-  const idxFuqi = getIdx("夫妻");
-  const idxFriends = getIdx("交友");
-
-  const mingPack = getMajorStarsOrBorrow(idxMing);
-  const fudePack = getMajorStarsOrBorrow(idxFude);
-  const jiePack = getMajorStarsOrBorrow(idxJie);
-  const fuqiPack = getMajorStarsOrBorrow(idxFuqi);
-  const frPack = getMajorStarsOrBorrow(idxFriends);
-
-  const mingTag = starTagForMajors(mingPack.majors);
-  const fudeTag = starTagForMajors(fudePack.majors);
-  const jieTag = starTagForMajors(jiePack.majors);
-
-  const idxJi = _lastLianZhenIdx;
-  const idxLu = findPalaceIndexByStarName("天同");
-
-  const jiKey = idxJi >= 0 ? normalizePalaceName(_lastChart.palaces[idxJi].name) : "";
-  const luKey = idxLu >= 0 ? normalizePalaceName(_lastChart.palaces[idxLu].name) : "";
-
-  const jiDef = jiKey ? KB2026?.palace_definitions?.[jiKey] : null;
-  const luDef = luKey ? KB2026?.palace_definitions?.[luKey] : null;
-
-  const title =
-    jiKey === "田宅" && luKey === "遷移"
-      ? "🌟 2026 年度導航：先蹲後跳的「系統重組年」"
-      : `🌟 2026 年度導航：先修「${jiDef?.label || "壓力區"}」再放大「${luDef?.label || "機會區"}」`;
-
-  const line1 = `你的性格核心（命宮）：${
-    mingTag ? `${mingTag.tag}（${(mingPack.majors || []).join("、") || "—"}）`
-           : `鏡面模式（空宮借${toSafeText(mingPack.opp?.name)}）`
-  }`;
-
-  const line2 = `快樂與安全感（福德）：${
-    fudeTag ? `${fudeTag.tag}（${(fudePack.majors || []).join("、") || "—"}）`
-           : `鏡面模式（空宮借${toSafeText(fudePack.opp?.name)}）`
-  }`;
-
-  const line3 = `壓力反應（疾厄）：${
-    jieTag ? `${(jiePack.majors || []).join("、") || "—"}（${jieTag.tag}）` : `${(jiePack.majors || []).join("、") || "以場景判讀"}`
-  }`;
-
-  const line4 = `關係模式（夫妻 / 交友）：${(fuqiPack.majors || []).join("、") || "空宮"} ／ ${(frPack.majors || []).join("、") || "空宮"}`;
-
-  const line5 = `今年的坎（忌）：${jiKey ? `${jiKey}｜${jiDef?.label || ""}` : "（未定位）"}`;
-  const line6 = `今年的光（祿）：${luKey ? `${luKey}｜${luDef?.label || ""}` : "（未定位）"}`;
-
-  el.innerHTML = `
-    <div class="font-black text-zinc-200 mb-2">${title}</div>
-    <div class="space-y-1">
-      <div>${line1}</div>
-      <div>${line2}</div>
-      <div>${line3}</div>
-      <div>${line4}</div>
-      <div class="mt-2">${line5}</div>
-      <div>${line6}</div>
-    </div>
-    <div class="mt-3 text-[12px] text-zinc-500 leading-relaxed">
-      讀盤順序（小白版）：命宮看「你怎麼做事」→ 福德看「你怎麼快樂」→ 疾厄看「你怎麼耗損」→ 夫妻/交友看「你怎麼連結」。
-      四化是今年在哪裡更容易舒服/卡住的提示。
-    </div>
-  `;
-}
-
-function updateAnalysis(chart) {
-  // Annual aphorism
-  const idxJi = _lastLianZhenIdx;
-  const idxLu = findPalaceIndexByStarName("天同");
-
-  const jiPalace = idxJi >= 0 ? chart.palaces[idxJi] : null;
-  const luPalace = idxLu >= 0 ? chart.palaces[idxLu] : null;
-
-  const jiKey = jiPalace ? normalizePalaceName(jiPalace.name) : "";
-  const luKey = luPalace ? normalizePalaceName(luPalace.name) : "";
-
-  const jiDef = jiKey ? KB2026?.palace_definitions?.[jiKey] : null;
-  const luDef = luKey ? KB2026?.palace_definitions?.[luKey] : null;
-
-  const aph = document.getElementById("aphorism-text");
-  if (aph) {
-    const jiLabel = jiDef?.label || jiKey || "壓力區";
-    const luLabel = luDef?.label || luKey || "機會區";
-    aph.textContent =
-      `2026 丙午年戰略重點在於「轉化」與「重組」。` +
-      `流年化忌（廉貞）落入你的【${toSafeText(jiPalace?.name || "未定位")}】（${jiLabel}），代表今年更像「補洞/修繕年」：先修系統、先補根基，再談衝刺。` +
-      `而天同化祿進入【${toSafeText(luPalace?.name || "未定位")}】（${luLabel}），這裡是年度更容易出現「資源／合作／好運窗口」的突破口：多走出去、多曝光、多連結，順勢擴張。`;
-  }
-
-  // Monthly quests (click -> blink branch)
-  const ql = document.getElementById("quest-list");
-  if (!ql) return;
-
-  const monthToBranch = ["寅","卯","辰","巳","午","未","申","酉","戌","亥","子","丑"]; // MVP mapping
-
-  const months = (KB2026?.monthly_strategy || []).map((it, i) => {
-    const branch = monthToBranch[(it.month - 1) % 12] || "";
-    const tail =
-      it.color === "red" ? `（提醒：今年要特別顧「${jiDef?.label || jiKey || "壓力區"}」）` :
-      it.color === "green" ? `（加分：把成果丟到「${luDef?.label || luKey || "機會區"}」舞台）` :
-      it.color === "yellow" ? `（修煉：用專業拿回節奏）` :
-      `（穩定：用口碑與條理累積信用）`;
-
-    return {
-      month: it.month,
-      theme: it.theme,
-      desc: it.desc,
-      action: it.action,
-      color: it.color,
-      branch,
-      full: `${toSafeText(it.desc)} 行動：${toSafeText(it.action)} ${tail}`,
-    };
-  });
-
-  ql.innerHTML = months.map((q) => `
-    <div class="quest-item" data-branch="${q.branch}">
-      <div class="text-[#D4AF37] font-black mb-1">${q.month} 月｜${toSafeText(q.theme)}</div>
-      <div class="text-zinc-400 leading-relaxed">${toSafeText(q.full)}</div>
-      <div class="text-[11px] text-zinc-500 mt-2">定位：${q.branch}宮（點我高亮）</div>
-    </div>
-  `).join("");
-
-  ql.querySelectorAll(".quest-item").forEach((item) => {
-    item.addEventListener("click", () => {
-      const branch = item.getAttribute("data-branch") || "";
-      blinkBranch(branch);
-      scrollToSection("sec-chart");
-    });
-  });
-}
-
-function blinkBranch(branch) {
-  if (!branch) return;
-  const el = document.querySelector(`.p-${branch}`);
-  if (!el) return;
-  el.classList.add("blink");
-  setTimeout(() => el.classList.remove("blink"), 900);
-}
-
-/** =======================
- *  CSV Export
- *  ======================= */
+// ---------- CSV export ----------
 function csvEscape(v) {
   const s = toSafeText(v);
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -819,21 +890,18 @@ function exportCSV() {
   }
 
   const dob = getDOBParts();
-  const tob = document.getElementById("tob")?.value || "";
-  const gender = document.getElementById("gender")?.value || "";
-  const calendar = document.getElementById("calendar")?.value || "";
+  const tob = $("tob")?.value || "";
+  const gender = $("gender")?.value || "";
+  const calendar = $("calendar")?.value || "";
 
   const idxJi = _lastLianZhenIdx;
   const idxLu = findPalaceIndexByStarName("天同");
-
   const jiKey = idxJi >= 0 ? normalizePalaceName(_lastChart.palaces[idxJi].name) : "";
   const luKey = idxLu >= 0 ? normalizePalaceName(_lastChart.palaces[idxLu].name) : "";
-
-  const jiDef = jiKey ? KB2026?.palace_definitions?.[jiKey] : null;
-  const luDef = luKey ? KB2026?.palace_definitions?.[luKey] : null;
+  const jiDef = jiKey ? palaceDefByName(jiKey) : null;
+  const luDef = luKey ? palaceDefByName(luKey) : null;
 
   const rows = [];
-
   rows.push(["紫微戰略地圖｜匯出資料（2026）"]);
   rows.push([]);
   rows.push(["年度導航"]);
@@ -846,7 +914,7 @@ function exportCSV() {
   rows.push(["命主", _lastChart.soul]);
   rows.push(["壓力點（忌）", jiKey ? `${jiKey}｜${jiDef?.label || ""}` : ""]);
   rows.push(["機會點（祿）", luKey ? `${luKey}｜${luDef?.label || ""}` : ""]);
-  rows.push(["深度諮詢報名", CONSULT_URL]);
+  rows.push(["諮詢連結", FORM_URL]);
   rows.push([]);
 
   rows.push(["十二宮場景"]);
@@ -854,8 +922,7 @@ function exportCSV() {
 
   _lastChart.palaces.forEach((p, idx) => {
     const key = normalizePalaceName(p.name);
-    const def = KB2026?.palace_definitions?.[key];
-
+    const def = palaceDefByName(key);
     const majors = starsOfPalace(p);
     let isEmpty = majors.length === 0;
     let borrowFrom = "";
@@ -881,11 +948,9 @@ function exportCSV() {
 
   rows.push([]);
   rows.push(["流月戰略任務"]);
-  rows.push(["月份", "主題", "任務描述", "行動", "顏色"]);
-
-  (KB2026?.monthly_strategy || []).forEach((it) => {
-    rows.push([it.month, it.theme, it.desc, it.action, it.color]);
-  });
+  rows.push(["月份", "主題", "任務描述"]);
+  const months = buildMonthlyQuests(jiKey, luKey);
+  months.forEach((mObj) => rows.push([mObj.m, mObj.theme, mObj.task]));
 
   const csv = "\uFEFF" + rows.map((r) => r.map(csvEscape).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -899,49 +964,11 @@ function exportCSV() {
   a.remove();
   URL.revokeObjectURL(url);
 }
-
-/** =======================
- *  Monthly CTA delayed reveal
- *  ======================= */
-function setupMonthlyCtaObserver() {
-  const sec = document.getElementById("sec-monthly");
-  const cta = document.getElementById("cta-monthly");
-  if (!sec || !cta) return;
-
-  const obs = new IntersectionObserver(
-    (entries) => {
-      const hit = entries.some((e) => e.isIntersecting);
-      if (!hit) return;
-
-      if (_monthlyCtaTimer) return;
-      _monthlyCtaTimer = setTimeout(() => {
-        cta.classList.remove("cta-hidden");
-        cta.classList.add("cta-show");
-      }, 2000);
-    },
-    { threshold: 0.35 }
-  );
-
-  obs.observe(sec);
-}
-
-/** =======================
- *  Expose for HTML onclick
- *  ======================= */
-window.deployTacticalMap = deployTacticalMap;
-window.resetToInput = resetToInput;
 window.exportCSV = exportCSV;
-window.scrollToSection = scrollToSection;
 
-/** =======================
- *  Init
- *  ======================= */
+// ---------- init ----------
 initDOBSelectors();
 initBottomSheet();
-setupMonthlyCtaObserver();
 
 const savedT = localStorage.getItem("sm_tob");
-if (savedT) {
-  const tob = document.getElementById("tob");
-  if (tob) tob.value = savedT;
-}
+if (savedT && $("tob")) $("tob").value = savedT;

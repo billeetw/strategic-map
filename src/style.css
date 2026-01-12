@@ -174,8 +174,11 @@ input, select {
   background: #000 !important;
   border: 1px solid #333 !important;
   color: white !important;
-  font-size: 0.85rem;
-  padding: 8px;
+  font-size: 0.95rem; /* 手機較好讀 */
+  padding: 10px;
+}
+@media (min-width: 768px) {
+  input, select { font-size: 0.85rem; padding: 8px; }
 }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -190,4 +193,14 @@ input, select {
 @media (prefers-reduced-motion: reduce) {
   .palace { transition: none; }
   .palace:hover { transform: none; }
+}
+@media (max-width: 640px) {
+  #aphorism-text, #profile-summary, #palace-detail {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .quest-item {
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
 }

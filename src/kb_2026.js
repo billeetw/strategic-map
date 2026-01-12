@@ -1,6 +1,6 @@
 // src/kb_2026.js
 export const KB2026 = {
-  service_name: "2026 戰略導航系統",
+  service_name: "2026 一起出來玩紫微戰略地圖",
   year: 2026,
 
   // 12宮：小白場景資料庫

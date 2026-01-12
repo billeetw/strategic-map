@@ -176,7 +176,6 @@ input, select {
   color: white !important;
   font-size: 0.85rem;
   padding: 8px;
-  width: 100%;
 }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }

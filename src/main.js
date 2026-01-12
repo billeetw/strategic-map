@@ -13,6 +13,7 @@ const SIHUA_2026 = (KB2026 && KB2026.annual_sihua_2026) || {
 let _lastChart = null;
 let _lastLianZhenIdx = -1;
 let _selectedPalaceIdx = -1;
+let _questBound = false;
 
 // ---------- utils ----------
 function toSafeText(v) {
@@ -46,7 +47,19 @@ function timeIndexFromInput(tob) {
 }
 
 function daysInMonth(y, m) {
-  return new Date(y, m, 0).getDate(); // m: 1..12
+  return new Date(y, m, 0).getDate();
+}
+
+// 農曆月 → 地支（示意用：正月=寅 ... 12月=丑）
+function branchFromMonth(month) {
+  const arr = ["寅","卯","辰","巳","午","未","申","酉","戌","亥","子","丑"];
+  const i = Math.max(1, Math.min(12, Number(month))) - 1;
+  return arr[i];
+}
+
+function isInViewport(el, pad = 24) {
+  const r = el.getBoundingClientRect();
+  return r.top >= -pad && r.bottom <= (window.innerHeight + pad);
 }
 
 // ---------- DOB selectors ----------
@@ -121,8 +134,8 @@ function getDOBParts() {
 }
 
 // ---------- KB helpers (defensive) ----------
-function palaceDefByName(palaceName) {
-  const key = normalizePalaceName(palaceName);
+function palaceDefByName(palaceNameOrKey) {
+  const key = normalizePalaceName(palaceNameOrKey);
   return (KB2026?.palace_definitions && KB2026.palace_definitions[key]) || null;
 }
 function huaDef(hua) {
@@ -149,8 +162,6 @@ function starsOfPalace(palace) {
 
 function starTagForMajors(majors) {
   if (!majors || majors.length === 0) return null;
-
-  // try combo first
   if (majors.length >= 2) {
     const combo1 = `${majors[0]}${majors[1]}`;
     const combo2 = `${majors[1]}${majors[0]}`;
@@ -177,6 +188,11 @@ function getMajorStarsOrBorrow(idx) {
 function findPalaceIndexByStarName(starName) {
   if (!_lastChart) return -1;
   return _lastChart.palaces.findIndex((p) => (p.majorStars || []).some((s) => s.name === starName));
+}
+
+function findPalaceIndexByBranch(branch) {
+  if (!_lastChart) return -1;
+  return _lastChart.palaces.findIndex((p) => p.earthlyBranch === branch);
 }
 
 // ---------- bottom sheet ----------
@@ -208,10 +224,8 @@ function isMobileView() {
 
 function openBottomSheet({ title, html }) {
   if (!_sheet) return;
-
   _sheet.title.textContent = title || "宮位解析";
   _sheet.body.innerHTML = html || "";
-
   _sheet.root.classList.remove("hidden");
   document.body.style.overflow = "hidden";
   _sheet.isOpen = true;
@@ -223,7 +237,6 @@ function openBottomSheet({ title, html }) {
 
 function closeBottomSheet() {
   if (!_sheet || !_sheet.isOpen) return;
-
   _sheet.panel.classList.add("translate-y-full");
   _sheet.isOpen = false;
 
@@ -274,6 +287,15 @@ function scrollToTopQuests() {
 }
 window.scrollToTopQuests = scrollToTopQuests;
 
+function flashPalace(idx) {
+  const el = document.getElementById(`palace-${idx}`);
+  if (!el) return;
+  el.classList.remove("flash");
+  void el.offsetWidth; // reflow
+  el.classList.add("flash");
+  setTimeout(() => el.classList.remove("flash"), 900);
+}
+
 function deployTacticalMap() {
   clearError();
 
@@ -315,7 +337,6 @@ function deployTacticalMap() {
   _lastChart = chart;
   _selectedPalaceIdx = -1;
 
-  // rebuild chart
   const root = $("map-root");
   const centerHole = root?.querySelector(".center-hole");
   const svgOverlay = root?.querySelector("#svg-overlay");
@@ -328,7 +349,6 @@ function deployTacticalMap() {
   root.appendChild(svgOverlay);
 
   const nominalBranch = chart.earthlyBranchOfSoulPalace;
-
   let lianZhenIdx = -1;
 
   chart.palaces.forEach((palace, idx) => {
@@ -339,7 +359,6 @@ function deployTacticalMap() {
     const majors = starsOfPalace(palace);
     const isEmpty = majors.length === 0;
 
-    // energy classes
     const huaSet = new Set();
     (palace.majorStars || []).forEach((s) => {
       const hua = SIHUA_2026[s.name];
@@ -347,7 +366,7 @@ function deployTacticalMap() {
       if (s.name === "廉貞") lianZhenIdx = idx;
     });
 
-    const cls = [
+    pDiv.className = [
       "palace",
       `p-${palace.earthlyBranch}`,
       isNominal ? "is-nominal" : "",
@@ -358,7 +377,6 @@ function deployTacticalMap() {
       huaSet.has("忌") ? "has-hua-ji" : "",
     ].filter(Boolean).join(" ");
 
-    pDiv.className = cls;
     pDiv.tabIndex = 0;
     pDiv.setAttribute("role", "button");
     pDiv.setAttribute("aria-label", `${toSafeText(palace.name)} 宮`);
@@ -379,7 +397,6 @@ function deployTacticalMap() {
     const minorWrap = document.createElement("div");
     minorWrap.className = "flex";
 
-    // major stars
     (palace.majorStars || []).forEach((s) => {
       const star = document.createElement("div");
       star.className = "star-main";
@@ -400,7 +417,6 @@ function deployTacticalMap() {
       majorWrap.appendChild(star);
     });
 
-    // minor stars
     (palace.minorStars || []).forEach((s) => {
       const star = document.createElement("div");
       star.className = "star-minor";
@@ -428,11 +444,11 @@ function deployTacticalMap() {
     pDiv.appendChild(meta);
     pDiv.appendChild(age);
 
-    pDiv.addEventListener("click", () => selectPalace(idx));
+    pDiv.addEventListener("click", () => selectPalace(idx, { flash: true }));
     pDiv.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" || ev.key === " ") {
         ev.preventDefault();
-        selectPalace(idx);
+        selectPalace(idx, { flash: true });
       }
     });
 
@@ -449,7 +465,6 @@ function deployTacticalMap() {
   const profileEl = $("profile-summary");
   if (profileEl) profileEl.innerHTML = buildProfileSummaryHTML();
 
-  // default select 命宮（宮名=命）
   const nominalIdx = chart.palaces.findIndex((p) => normalizePalaceName(p.name) === "命");
   if (nominalIdx >= 0) selectPalace(nominalIdx);
 
@@ -458,7 +473,7 @@ function deployTacticalMap() {
   window.removeEventListener("resize", _onResizeRedraw);
   window.addEventListener("resize", _onResizeRedraw);
 
-  // monthly CTA fade in after 2s (when results rendered)
+  // monthly CTA fade in after 2s
   const cta = $("cta-monthly");
   if (cta) {
     cta.classList.remove("cta-show");
@@ -476,7 +491,7 @@ function _onResizeRedraw() {
 }
 
 // ---------- selection + render ----------
-function selectPalace(idx) {
+function selectPalace(idx, opts = {}) {
   _selectedPalaceIdx = idx;
 
   for (let i = 0; i < 12; i++) {
@@ -498,7 +513,8 @@ function selectPalace(idx) {
     if (detailEl) detailEl.innerHTML = html;
   }
 
-  drawOverlay(); // include borrow line if needed
+  drawOverlay();
+  if (opts.flash) flashPalace(idx);
 }
 
 function buildPalaceDetailHTML(palace, idx) {
@@ -578,7 +594,6 @@ function buildLifeExplainHTML(idx) {
   const tag = starTagForMajors(majors);
   const key = normalizePalaceName(palace.name);
 
-  // hua lines (annual only: based on SIHUA_2026 mapping)
   const huaLines = [];
   for (const s of (palace.majorStars || [])) {
     const hua = SIHUA_2026[s.name];
@@ -679,10 +694,10 @@ function buildProfileSummaryHTML() {
   const mingTag = starTagForMajors(mingPack.majors);
   const jieTag = starTagForMajors(jiePack.majors);
 
-  const idxJi = _lastLianZhenIdx; // 廉貞化忌所在宮
-  const idxLu = findPalaceIndexByStarName("天同"); // 天同化祿
-  const idxQuan = findPalaceIndexByStarName("天機"); // 天機化權
-  const idxKe = findPalaceIndexByStarName("文昌"); // 文昌化科
+  const idxJi = _lastLianZhenIdx;
+  const idxLu = findPalaceIndexByStarName("天同");
+  const idxQuan = findPalaceIndexByStarName("天機");
+  const idxKe = findPalaceIndexByStarName("文昌");
 
   const jiKey = idxJi >= 0 ? normalizePalaceName(_lastChart.palaces[idxJi].name) : null;
   const luKey = idxLu >= 0 ? normalizePalaceName(_lastChart.palaces[idxLu].name) : null;
@@ -783,22 +798,23 @@ function updateAnnualAndMonthly(chart, lzIdx) {
     `而天同化祿進入【${luName}】（${luScene}），這裡是年度更容易出現「資源／合作／好運窗口」的突破口：多走出去、多曝光、多連結，順勢擴張。`;
 
   const months = buildMonthlyQuests(jiKey, luKey);
-  $("quest-list").innerHTML = months.map((q) => `
-    <div class="quest-item">
+  const list = $("quest-list");
+  list.innerHTML = months.map((q) => `
+    <div class="quest-item" data-month="${q.month}" data-branch="${q.branch}">
       <div style="color:var(--gold);font-weight:900;margin-bottom:6px;">${q.m}｜${q.theme}</div>
       <div style="color:rgba(255,255,255,0.70);line-height:1.6;">${q.task}</div>
+      <div style="margin-top:6px;font-size:12px;color:rgba(255,255,255,0.45);">定位地支：${q.branch}</div>
     </div>
   `).join("");
+
+  bindQuestNavigationOnce();
 }
 
 function buildMonthlyQuests(jiKey, luKey) {
   const jiLabel = jiKey ? (palaceDefByName(jiKey)?.label || jiKey) : "壓力區";
   const luLabel = luKey ? (palaceDefByName(luKey)?.label || luKey) : "機會區";
 
-  const list = KB2026?.monthly_strategy || [
-    { month: 1, theme: "資源清點", color: "yellow", desc: "年度過渡期，關閉不賺錢的支線。", action: "精簡 KPI" },
-    { month: 2, theme: "啟動測試", color: "green", desc: "執行 MVP 測試，用數據快速迭代。", action: "做一版測試上線" },
-  ];
+  const list = KB2026?.monthly_strategy || [];
 
   return list.map((it) => {
     const m = `${it.month} 月`;
@@ -808,8 +824,54 @@ function buildMonthlyQuests(jiKey, luKey) {
     else if (it.color === "yellow") tail = `（修煉：用專業拿回節奏）`;
     else tail = `（穩定：用口碑與條理累積信用）`;
 
-    return { m, theme: it.theme, task: `${it.desc} 行動：${it.action} ${tail}` };
+    const branch = branchFromMonth(it.month);
+    return {
+      month: it.month,
+      branch,
+      m,
+      theme: it.theme,
+      task: `${it.desc} 行動：${it.action} ${tail}`,
+    };
   });
+}
+
+// ---------- flow-month click -> palace highlight ----------
+function bindQuestNavigationOnce() {
+  if (_questBound) return;
+  const list = $("quest-list");
+  if (!list) return;
+
+  list.addEventListener("click", (ev) => {
+    const item = ev.target.closest(".quest-item");
+    if (!item) return;
+    if (!_lastChart) return;
+
+    // active state
+    list.querySelectorAll(".quest-item").forEach((x) => x.classList.remove("is-active"));
+    item.classList.add("is-active");
+
+    const branch = item.dataset.branch;
+    const idx = findPalaceIndexByBranch(branch);
+
+    if (idx < 0) {
+      showError(`找不到對應地支宮位：${branch}`);
+      return;
+    }
+
+    // 如果命盤不在視窗內，先滑回去（尤其手機很重要）
+    const chartSec = $("sec-chart");
+    if (chartSec && !isInViewport(chartSec, 40)) {
+      chartSec.scrollIntoView({ behavior: "smooth", block: "start" });
+      // 等捲動開始後再選取（避免使用者看不到閃爍）
+      setTimeout(() => {
+        selectPalace(idx, { flash: true });
+      }, 320);
+    } else {
+      selectPalace(idx, { flash: true });
+    }
+  });
+
+  _questBound = true;
 }
 
 // ---------- overlay lines (clash + borrow) ----------
@@ -819,10 +881,9 @@ function drawOverlay() {
   if (!svg || !root) return;
 
   svg.innerHTML = "";
-
   const container = root.getBoundingClientRect();
 
-  // 1) red dashed line: 廉貞化忌所在宮 → 對宮
+  // red dashed line: 廉貞所在宮 → 對宮
   if (_lastLianZhenIdx >= 0) {
     const a = document.getElementById(`palace-${_lastLianZhenIdx}`);
     const b = document.getElementById(`palace-${(_lastLianZhenIdx + 6) % 12}`);
@@ -847,7 +908,7 @@ function drawOverlay() {
     }
   }
 
-  // 2) gold thin line: if selected palace is empty → opposite (borrow)
+  // gold thin line: selected palace empty → opposite (borrow)
   if (_selectedPalaceIdx >= 0 && _lastChart) {
     const p = _lastChart.palaces[_selectedPalaceIdx];
     const majors = starsOfPalace(p);
@@ -948,9 +1009,9 @@ function exportCSV() {
 
   rows.push([]);
   rows.push(["流月戰略任務"]);
-  rows.push(["月份", "主題", "任務描述"]);
+  rows.push(["月份", "地支定位", "主題", "任務描述"]);
   const months = buildMonthlyQuests(jiKey, luKey);
-  months.forEach((mObj) => rows.push([mObj.m, mObj.theme, mObj.task]));
+  months.forEach((mObj) => rows.push([mObj.m, mObj.branch, mObj.theme, mObj.task]));
 
   const csv = "\uFEFF" + rows.map((r) => r.map(csvEscape).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });

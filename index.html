@@ -3,12 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>紫微戰略地圖｜用白話把命盤變成 2026 行動策略</title>
+    <title>紫微戰略地圖｜提供您 2026 行動參考策略</title>
   </head>
   <body>
-    <!-- Top bar -->
     <div class="top-bar">
-      📢 <strong>紫微戰略地圖</strong>｜用白話把命盤變成 2026 行動策略
+      📢 <strong>紫微戰略地圖</strong>｜提供您 2026 行動參考策略
     </div>
 
     <main class="wrap">
@@ -27,7 +26,6 @@
         </div>
       </header>
 
-      <!-- STEP 1 -->
       <section id="input-section" class="card">
         <div class="card-title">STEP 1｜同步個人演算數據</div>
 
@@ -73,13 +71,11 @@
         <button class="btn btn-primary mt12" onclick="deployTacticalMap()">啟動演算</button>
 
         <div class="muted mt10">
-          ＊本工具是「白話任務導向」，不是專業命理師解盤或醫療建議。
+          ＊本工具是任務執行參考建議，不是專業命理師解盤或醫療建議。
         </div>
       </section>
 
-      <!-- RESULT -->
       <section id="result-section" class="hidden">
-        <!-- Sticky nav -->
         <div class="nav">
           <button class="navbtn" onclick="scrollToSection('sec-chart')">命盤檢視</button>
           <button class="navbtn" onclick="scrollToSection('sec-profile')">一分鐘摘要</button>
@@ -89,20 +85,17 @@
           <button class="navbtn navbtn-gold" onclick="exportCSV()">匯出 CSV</button>
         </div>
 
-        <!-- Profile -->
         <section id="sec-profile" class="card mt12">
           <div class="card-title">命格一分鐘摘要（人生 / 性格）</div>
           <div id="profile-summary" class="text"></div>
         </section>
 
-        <!-- Annual -->
         <section id="sec-annual" class="card mt12">
           <div class="card-title">年度核心戰略建議（2026）</div>
           <div id="aphorism-text" class="text"></div>
 
-          <!-- CTA (after annual) -->
           <div class="cta mt12">
-            <div class="cta-title">戰略干預點：需要「人腦介入」的時候到了</div>
+            <div class="cta-title">戰略干預點：需要專業諮詢的時候到了</div>
             <div class="cta-desc">
               數位演算能告訴你風險在哪，但只有人類智慧能告訴你如何贏過這個風險。
               若你面臨的是涉及人生規劃、核心職涯或企業佈局的關鍵決策，建議啟動 1 對 1 深度諮詢。
@@ -114,7 +107,6 @@
           </div>
         </section>
 
-        <!-- Chart + Palace detail -->
         <section id="sec-chart" class="mt12 layout">
           <div class="left">
             <div class="card">
@@ -144,7 +136,7 @@
           <div class="right">
             <div class="card">
               <div class="card-title">宮位情報</div>
-              <div class="muted">點選任一宮位查看（桌機右側更新 / 手機底部抽屜）。</div>
+              <div class="muted">點選任一宮位查看（桌機右側更新 / 手機底部按鍵）。</div>
               <div id="palace-detail" class="text mt10">
                 <div class="muted">尚未選擇宮位。</div>
               </div>
@@ -152,24 +144,22 @@
           </div>
         </section>
 
-        <!-- Monthly -->
         <section id="sec-monthly" class="card mt12">
           <div class="row">
             <div>
               <div class="card-title">2026 流月建議（任務清單）</div>
-              <div class="muted">每月一句話：進攻 / 防守 / 修煉 / 穩定。</div>
+              <div class="muted">點任一月份 → 命盤對應宮位會閃兩下並自動開啟解析（以農曆月地支對應）。</div>
             </div>
             <button class="btn btn-ghost" onclick="scrollToTopQuests()">回頂部</button>
           </div>
 
           <div id="quest-list" class="quest-list mt10"></div>
 
-          <!-- CTA (after monthly) - fade in after 2s -->
           <div id="cta-monthly" class="cta mt12 cta-hidden">
             <div class="cta-title">看完 12 個月還是不知道怎麼收斂？</div>
             <div class="cta-desc">
-              我可以把這張戰略地圖轉成「你的個人執行清單」：哪些該衝、哪些該守、哪些要先補洞。
-              <div class="cta-note">＊同樣由李伯彥老師親自進行。</div>
+              想把這張戰略地圖轉成「個人戰略規劃？」：哪些該衝、哪些該守、哪些要先補洞。
+              <div class="cta-note">＊由李伯彥老師親自進行。</div>
             </div>
             <a class="btn btn-consult" href="https://forms.gle/Vvs6U12TeMYtab8A6" target="_blank" rel="noreferrer">
               將戰略地圖轉化為個人執行清單↗
@@ -179,7 +169,6 @@
       </section>
     </main>
 
-    <!-- Mobile Bottom Sheet -->
     <div id="sheet-root" class="sheet hidden" aria-hidden="true">
       <div id="sheet-backdrop" class="sheet-backdrop"></div>
       <div id="sheet-panel" class="sheet-panel translate-y-full" role="dialog" aria-modal="true">

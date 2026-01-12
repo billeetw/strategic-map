@@ -667,7 +667,7 @@ function buildLifeExplainHTML(idx) {
       <div style="margin-top:12px;">
         <a href="${FORM_URL}" target="_blank" rel="noreferrer"
            style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:10px 12px;border-radius:12px;border:1px solid rgba(212,175,55,0.35);background:rgba(212,175,55,0.08);color:rgba(255,255,255,0.92);font-weight:900;">
-          需要更深一層策略？申請 1 對 1（NT$3600）↗
+          需要更深一層策略？申請 1 對 1諮詢服務↗
         </a>
       </div>
     </div>

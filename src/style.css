@@ -1,212 +1,247 @@
-@import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;900&display=swap');
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>紫微戰略地圖｜2026</title>
+  </head>
 
-:root {
-  --ukg-red: #C41E3A;
-  --gold: #D4AF37;
-  --bg: #050505;
-  --panel: rgba(20, 20, 20, 0.82);
-  --border: #2a2a2a;
-}
+  <body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+      📢 <strong>紫微戰略地圖</strong>｜用白話把命盤變成 2026 行動策略
+    </div>
 
-body {
-  background: var(--bg);
-  color: #fff;
-  font-family: 'Noto Serif TC', serif;
-  margin: 0;
-  overflow-x: hidden;
-}
+    <main class="wrap">
+      <header class="max-w-6xl mx-auto mb-6 border-b border-zinc-800 pb-4 flex items-end justify-between gap-3">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-black tracking-widest uppercase text-red-600">Ziwei Strategic Map</h1>
+          <p class="text-[10px] text-zinc-500 uppercase tracking-[0.35em] mt-1">
+            Akashic Engine v9.1 · Public Edition
+          </p>
+        </div>
 
-.top-bar {
-  background: linear-gradient(90deg, #1a1a1a 0%, #C41E3A 100%);
-  color: white;
-  padding: 12px;
-  text-align: center;
-  font-size: 0.9rem;
-  border-bottom: 2px solid var(--gold);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
+        <div class="hidden sm:flex gap-2">
+          <button id="btn-reset" onclick="resetToInput()" class="btn btn-ghost hidden">重新輸入</button>
+          <button id="btn-recalc" onclick="deployTacticalMap()" class="btn btn-ghost hidden">重新演算</button>
+        </div>
+      </header>
 
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(4, 1fr);
-  gap: 4px;
-  aspect-ratio: 1 / 1;
-  width: 100%;
-  max-width: 820px;
-  margin: 0 auto;
-  position: relative;
-}
+      <div id="error-box" class="hidden max-w-6xl mx-auto mb-4 p-3 border border-red-900 bg-red-950/30 text-red-200 text-sm"></div>
 
-.p-寅 { grid-area: 4 / 1; }
-.p-卯 { grid-area: 3 / 1; }
-.p-辰 { grid-area: 2 / 1; }
-.p-巳 { grid-area: 1 / 1; }
-.p-午 { grid-area: 1 / 2; }
-.p-未 { grid-area: 1 / 3; }
-.p-申 { grid-area: 1 / 4; }
-.p-酉 { grid-area: 2 / 4; }
-.p-戌 { grid-area: 3 / 4; }
-.p-亥 { grid-area: 4 / 4; }
-.p-子 { grid-area: 4 / 3; }
-.p-丑 { grid-area: 4 / 2; }
+      <!-- Input -->
+      <section id="input-section" class="max-w-xl mx-auto card p-5 sm:p-6">
+        <h2 class="section-title">STEP 1｜輸入出生資料</h2>
 
-.palace {
-  border: 1px solid #333;
-  padding: 8px;
-  background: rgba(15, 15, 15, 0.95);
-  position: relative;
-  min-height: 116px;
-  display: flex;
-  flex-direction: column;
-  transition: 0.2s;
-  z-index: 10;
-  cursor: pointer;
-  user-select: none;
-}
-.palace:hover { transform: translateY(-1px); border-color: #444; }
-.palace:focus { outline: 2px solid rgba(212, 175, 55, 0.55); outline-offset: 1px; }
+        <!-- DOB dropdowns (mobile friendly) -->
+        <div class="grid grid-cols-3 gap-3 mt-4">
+          <div>
+            <label class="label">出生年</label>
+            <select id="dob-year" class="input"></select>
+          </div>
+          <div>
+            <label class="label">出生月</label>
+            <select id="dob-month" class="input"></select>
+          </div>
+          <div>
+            <label class="label">出生日</label>
+            <select id="dob-day" class="input"></select>
+          </div>
+        </div>
 
-.is-nominal { border: 2px solid var(--gold) !important; }
-.is-selected { border: 2px solid rgba(212, 175, 55, 0.8) !important; box-shadow: 0 0 0 1px rgba(212,175,55,0.12) inset; }
+        <div class="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label class="label">出生時間</label>
+            <input type="time" id="tob" value="12:00" class="input w-full" />
+          </div>
+          <div>
+            <label class="label">性別</label>
+            <select id="gender" class="input w-full">
+              <option value="male" selected>男</option>
+              <option value="female">女</option>
+            </select>
+          </div>
+        </div>
 
-.center-hole {
-  grid-area: 2 / 2 / 4 / 4;
-  background: radial-gradient(circle, #1a1a1a 0%, #050505 100%);
-  border: 1px solid #222;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 5;
-}
+        <div class="grid grid-cols-1 gap-3 mt-3">
+          <div>
+            <label class="label">曆法</label>
+            <select id="calendar" class="input w-full">
+              <option value="gregorian" selected>陽曆（西元）</option>
+              <option value="lunar">農曆</option>
+            </select>
+            <div class="help mt-1">＊若你輸入農曆，暫以「非閏月」演算（之後可再加 UI）。</div>
+          </div>
+        </div>
 
-.star-main {
-  color: var(--gold);
-  font-weight: 900;
-  font-size: 1.05rem;
-  writing-mode: vertical-rl;
-  line-height: 1.05;
-  margin: 0 1px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
+        <button onclick="deployTacticalMap()" class="btn btn-primary w-full mt-5">
+          啟動演算
+        </button>
 
-.star-minor {
-  color: #8a8a8a;
-  font-size: 0.75rem;
-  writing-mode: vertical-rl;
-  margin-right: 2px;
-}
+        <div class="help mt-3">
+          提醒：本工具是「白話化導讀」，不是專業命理論斷與醫療建議。
+        </div>
+      </section>
 
-.hua-tag {
-  font-size: 0.58rem;
-  padding: 1px 4px;
-  border-radius: 3px;
-  color: #fff;
-  text-align: center;
-  writing-mode: horizontal-tb;
-  line-height: 1.2;
-}
-.hua-birth { background: var(--ukg-red); }
-.hua-2026 { background: #1e40af; }
+      <!-- Result -->
+      <section id="result-section" class="hidden max-w-6xl mx-auto pb-24 sm:pb-10">
+        <!-- Desktop sticky nav -->
+        <div class="hidden sm:block sticky top-[52px] z-40 mt-2">
+          <div class="nav-bar">
+            <button class="nav-btn is-active" data-nav="sec-chart">命盤（點宮）</button>
+            <button class="nav-btn" data-nav="sec-summary">一分鐘摘要</button>
+            <button class="nav-btn" data-nav="sec-year">年度建議</button>
+            <button class="nav-btn" data-nav="sec-month">流月任務</button>
 
-.palace-label {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  font-size: 0.8rem;
-  font-weight: 900;
-  color: #5a5a5a;
-}
-.meta-label {
-  position: absolute;
-  bottom: 5px;
-  left: 5px;
-  font-size: 0.65rem;
-  color: #3a3a3a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
-.age-label {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  font-size: 0.6rem;
-  color: #4a4a4a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
+            <div class="ml-auto flex gap-2">
+              <button onclick="exportCSV()" class="nav-btn nav-btn-accent">匯出 CSV</button>
+            </div>
+          </div>
+        </div>
 
-#svg-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 20;
-  width: 100%;
-  height: 100%;
-}
+        <!-- Guide / onboarding card -->
+        <div class="card p-4 sm:p-5 mt-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-sm sm:text-base font-black text-zinc-100">新手導覽卡｜怎麼看最不會迷路？</div>
+              <div class="text-[12px] sm:text-[13px] text-zinc-400 mt-2 leading-relaxed">
+                先點命盤的任一宮位看「白話解析」。例如：<br class="hidden sm:block" />
+                <span class="text-zinc-300">命宮</span>＝你怎麼做事；
+                <span class="text-zinc-300">福德</span>＝你怎麼快樂；
+                <span class="text-zinc-300">疾厄</span>＝你怎麼耗損；
+                <span class="text-zinc-300">夫妻/交友</span>＝你怎麼連結。
+              </div>
+              <div class="help mt-2">
+                ✅ 提醒：點選不同宮位可看情報（手機會從下方彈出卡片）
+              </div>
+            </div>
 
-.strategy-card {
-  background: var(--panel);
-  border-left: 4px solid var(--gold);
-  padding: 15px;
-}
+            <div class="hidden sm:flex gap-2 shrink-0">
+              <button class="btn btn-ghost" onclick="resetToInput()">重新輸入</button>
+              <button class="btn btn-ghost" onclick="deployTacticalMap()">重新演算</button>
+            </div>
+          </div>
 
-.quest-item {
-  background: #101010;
-  border-left: 3px solid var(--ukg-red);
-  padding: 10px;
-  margin-bottom: 8px;
-  font-size: 0.78rem;
-}
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button class="chip" data-palace-key="命">看命宮</button>
+            <button class="chip" data-palace-key="福德">看福德</button>
+            <button class="chip" data-palace-key="疾厄">看疾厄</button>
+            <button class="chip" data-palace-key="夫妻">看夫妻</button>
+          </div>
+        </div>
 
-.panel {
-  background: rgba(15, 15, 15, 0.78);
-  border: 1px solid var(--border);
-}
+        <!-- SECTION: Chart -->
+        <section id="sec-chart" class="section-anchor mt-6">
+          <div class="section-head">
+            <div>
+              <div class="section-h">命盤檢視（點選 12 宮）</div>
+              <div class="section-sub">點宮位看白話解析；空宮會自動「借對宮」幫你翻譯。</div>
+            </div>
+            <div class="text-[11px] text-zinc-500">
+              <span class="inline-block">目前選擇：</span>
+              <span id="selected-palace-name" class="text-zinc-300 font-bold">—</span>
+            </div>
+          </div>
 
-input, select {
-  background: #000 !important;
-  border: 1px solid #333 !important;
-  color: white !important;
-  font-size: 0.95rem; /* 手機較好讀 */
-  padding: 10px;
-}
-@media (min-width: 768px) {
-  input, select { font-size: 0.85rem; padding: 8px; }
-}
+          <div class="grid lg:grid-cols-2 gap-4">
+            <!-- chart -->
+            <div class="card p-3 sm:p-4">
+              <div class="chart-grid" id="map-root">
+                <div class="center-hole text-center">
+                  <div id="bureau-text" class="text-[#D4AF37] font-black text-2xl sm:text-3xl">--局</div>
+                  <div id="destiny-text" class="text-zinc-500 text-[10px] mt-2 font-mono uppercase">Analyzing...</div>
+                  <div class="mt-4 px-3 py-1 bg-zinc-900 border border-zinc-700 text-zinc-400 text-[9px] font-bold">
+                    2026 丙午流年：四化提示模式
+                  </div>
+                </div>
+                <svg id="svg-overlay"></svg>
+              </div>
+            </div>
 
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--ukg-red); border-radius: 10px; }
+            <!-- palace info -->
+            <div class="card p-4 sm:p-5">
+              <div class="section-h">宮位情報</div>
+              <div class="section-sub mb-3">點選任一宮位查看解析（手機會彈出卡片）。</div>
+              <div id="palace-detail" class="text-sm"></div>
+            </div>
+          </div>
+        </section>
 
-.hint {
-  font-size: 11px;
-  color: #6b7280;
-  line-height: 1.55;
-}
+        <!-- SECTION: Summary -->
+        <section id="sec-summary" class="section-anchor mt-8">
+          <div class="section-head">
+            <div>
+              <div class="section-h">命格一分鐘摘要（人生/性格）</div>
+              <div class="section-sub">把術語翻成你聽得懂的「人設＋行動提示」。</div>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="exportCSV()" class="btn btn-primary">匯出 CSV</button>
+            </div>
+          </div>
 
-@media (prefers-reduced-motion: reduce) {
-  .palace { transition: none; }
-  .palace:hover { transform: none; }
-}
-@media (max-width: 640px) {
-  #aphorism-text, #profile-summary, #palace-detail {
-    font-size: 0.95rem;
-    line-height: 1.6;
-  }
-  .quest-item {
-    font-size: 0.92rem;
-    line-height: 1.55;
-  }
-}
-@media (max-width: 640px) {
-  #sheet-body {
-    font-size: 0.95rem;
-    line-height: 1.65;
-  }
-}
+          <div class="card p-4 sm:p-5">
+            <div id="profile-summary" class="text-[13px] sm:text-[14px] leading-relaxed text-zinc-200">
+              請先啟動演算。
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: Annual -->
+        <section id="sec-year" class="section-anchor mt-8">
+          <div class="section-head">
+            <div>
+              <div class="section-h">年度核心戰略建議</div>
+              <div class="section-sub">用四化把「今年哪裡順、哪裡卡」講清楚。</div>
+            </div>
+          </div>
+
+          <div class="card p-4 sm:p-5">
+            <div id="aphorism-text" class="text-[13px] sm:text-[14px] leading-relaxed text-zinc-200"></div>
+          </div>
+        </section>
+
+        <!-- SECTION: Monthly -->
+        <section id="sec-month" class="section-anchor mt-8">
+          <div class="section-head">
+            <div>
+              <div class="section-h">2026 流月建議（任務清單）</div>
+              <div class="section-sub">每月一句話：進攻 / 防守 / 修煉 / 穩定。</div>
+            </div>
+            <button class="btn btn-ghost" onclick="scrollToTopQuests()">回頂部</button>
+          </div>
+
+          <div class="card p-4 sm:p-5">
+            <div id="quest-list" class="space-y-2"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <!-- Mobile bottom nav -->
+    <div class="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-800 bg-black/80 backdrop-blur">
+      <div class="grid grid-cols-4 gap-1 p-2">
+        <button class="nav-btn nav-btn-mobile is-active" data-nav="sec-chart">命盤</button>
+        <button class="nav-btn nav-btn-mobile" data-nav="sec-summary">摘要</button>
+        <button class="nav-btn nav-btn-mobile" data-nav="sec-year">年度</button>
+        <button class="nav-btn nav-btn-mobile" data-nav="sec-month">流月</button>
+      </div>
+    </div>
+
+    <!-- Mobile Bottom Sheet -->
+    <div id="sheet-root" class="hidden fixed inset-0 z-[60] sm:hidden">
+      <div id="sheet-backdrop" class="absolute inset-0 bg-black/60"></div>
+      <div
+        id="sheet-panel"
+        class="absolute left-0 right-0 bottom-0 translate-y-full transition-transform duration-200 bg-zinc-950 border-t border-zinc-800 rounded-t-2xl"
+      >
+        <div class="p-4 flex items-center justify-between gap-3 border-b border-zinc-800">
+          <div id="sheet-title" class="font-black text-zinc-100">宮位解析</div>
+          <button id="sheet-close" class="btn btn-ghost !py-2 !px-3">關閉</button>
+        </div>
+        <div id="sheet-body" class="p-4 max-h-[70vh] overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

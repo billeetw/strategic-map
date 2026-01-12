@@ -5,6 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>紫微戰略地圖 | 2026</title>
   </head>
+<!-- ✅ Mobile Bottom Sheet：點宮位會彈出解析（手機不用捲動） -->
+<div id="sheet-root" class="fixed inset-0 z-[3000] hidden">
+  <div id="sheet-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+  <div class="absolute inset-x-0 bottom-0">
+    <div
+      id="sheet-panel"
+      class="mx-auto max-w-xl bg-zinc-950 border border-zinc-800 rounded-t-2xl shadow-2xl
+             transform translate-y-full transition-transform duration-200"
+    >
+      <div class="p-4 border-b border-zinc-800 flex items-start justify-between gap-3">
+        <div>
+          <div id="sheet-title" class="text-base font-black text-zinc-100">宮位解析</div>
+          <div class="text-[12px] text-zinc-400 mt-1">點背景或按「關閉」即可返回命盤</div>
+        </div>
+
+        <button
+          id="sheet-close"
+          class="px-3 py-2 border border-zinc-700 text-zinc-200 hover:bg-zinc-900 text-sm font-bold rounded-lg"
+        >
+          關閉
+        </button>
+      </div>
+
+      <div id="sheet-body" class="p-4 max-h-[70vh] overflow-y-auto custom-scrollbar"></div>
+    </div>
+  </div>
+</div>
 
   <body>
     <div class="top-bar">

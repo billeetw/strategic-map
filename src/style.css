@@ -427,3 +427,26 @@ body {
   cursor: pointer;
 }
 .sheet-body { margin-top: 10px; }
+.gradient-title{
+  background: linear-gradient(90deg, #D4AF37 0%, #fff2c6 45%, #C41E3A 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-size: 200% 200%;
+  animation: titleShimmer 6s ease infinite;
+}
+.glow-title{
+  text-shadow:
+    0 0 10px rgba(212,175,55,.25),
+    0 0 22px rgba(196,30,58,.18);
+}
+
+@keyframes titleShimmer{
+  0%{ background-position: 0% 50%; }
+  50%{ background-position: 100% 50%; }
+  100%{ background-position: 0% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .gradient-title{ animation: none; }
+}

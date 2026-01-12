@@ -1,136 +1,244 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;900&display=swap");
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>一起出來玩｜紫微戰略地圖</title>
+  </head>
+  <body>
+    <div class="top-bar">
+      📢 <strong>紫微戰略地圖</strong>｜透過紫微演算探尋 2026 年度佈局機遇
+    </div>
 
-/* Tailwind v4 入口 */
-@import "tailwindcss";
+    <div class="p-4 md:p-8">
+      <header class="max-w-6xl mx-auto mb-6 border-b border-zinc-800 pb-4 flex justify-between items-end gap-4">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-black text-red-600 tracking-widest uppercase">Ziwei Strategic Map</h1>
+          <p class="text-[10px] text-zinc-500 uppercase tracking-[0.4em] mt-1">Akashic Engine v9.2 - Public Edition</p>
+        </div>
+        <div class="hidden md:block text-right text-[11px] text-zinc-500 leading-relaxed max-w-[360px]">
+          新手導覽：先看「一分鐘摘要」抓全局 → 點命盤 12 宮看細節 → 再看年度與流月任務。
+        </div>
+      </header>
 
-/* 告訴 Tailwind 要掃描哪些檔案，不然很多 class 不會被產生 */
-@source "../index.html";
-@source "./**/*.{js,ts,jsx,tsx,html}";
+      <!-- STEP 1 -->
+      <section id="input-section" class="max-w-xl mx-auto bg-zinc-900/40 p-6 border border-zinc-800 mb-10 rounded-lg">
+        <h2 class="text-xs font-bold mb-6 text-zinc-400 border-l-2 border-red-600 pl-3 uppercase">
+          STEP 1: 同步個人演算數據
+        </h2>
 
-/* ===== 你的自訂樣式（命盤排版核心）===== */
-:root { --ukg-red: #C41E3A; --gold: #D4AF37; --bg: #050505; }
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-[11px] text-zinc-500 mb-1">出生年</label>
+            <select id="dob-year" class="w-full input-like"></select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-zinc-500 mb-1">出生月</label>
+            <select id="dob-month" class="w-full input-like"></select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-zinc-500 mb-1">出生日</label>
+            <select id="dob-day" class="w-full input-like"></select>
+          </div>
+        </div>
 
-html, body { height: 100%; }
-body {
-  background: var(--bg);
-  color: #fff;
-  font-family: "Noto Serif TC", serif;
-  margin: 0;
-  overflow-x: hidden;
-}
+        <div class="grid grid-cols-2 gap-3 mt-4">
+          <div>
+            <label class="block text-[11px] text-zinc-500 mb-1">出生時間</label>
+            <input type="time" id="tob" value="12:00" class="w-full input-like" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-zinc-500 mb-1">性別</label>
+            <select id="gender" class="w-full input-like">
+              <option value="male">男</option>
+              <option value="female">女</option>
+            </select>
+          </div>
+        </div>
 
-/* 置頂 bar */
-.top-bar {
-  background: linear-gradient(90deg, #1a1a1a 0%, #C41E3A 100%);
-  color: white;
-  padding: 12px;
-  text-align: center;
-  font-size: 0.95rem;
-  border-bottom: 2px solid var(--gold);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
+        <div class="mt-4">
+          <label class="block text-[11px] text-zinc-500 mb-1">曆法</label>
+          <select id="calendar" class="w-full input-like">
+            <option value="gregorian">陽曆（西元）</option>
+            <option value="lunar">農曆（非閏月）</option>
+          </select>
+          <p class="text-[11px] text-zinc-500 mt-2 leading-relaxed">
+            小提醒：若你是農曆閏月生日，先用陽曆演算；要做閏月精準版本我也可以再幫你加 UI。
+          </p>
+        </div>
 
-/* 命盤格 */
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(4, 1fr);
-  gap: 4px;
-  aspect-ratio: 1 / 1;
-  width: 100%;
-  max-width: 820px;
-  margin: 0 auto;
-  position: relative;
-}
+        <div id="error-box" class="hidden mt-4 p-3 border border-red-700 bg-red-950/40 text-red-200 text-[12px] rounded"></div>
 
-/* 12宮定位（你的原版） */
-.p-寅 { grid-area: 4 / 1; } .p-卯 { grid-area: 3 / 1; } .p-辰 { grid-area: 2 / 1; } .p-巳 { grid-area: 1 / 1; }
-.p-午 { grid-area: 1 / 2; } .p-未 { grid-area: 1 / 3; } .p-申 { grid-area: 1 / 4; } .p-酉 { grid-area: 2 / 4; }
-.p-戌 { grid-area: 3 / 4; } .p-亥 { grid-area: 4 / 4; } .p-子 { grid-area: 4 / 3; } .p-丑 { grid-area: 4 / 2; }
+        <button
+          type="button"
+          onclick="deployTacticalMap()"
+          class="w-full bg-red-700 hover:bg-red-600 py-4 font-black mt-6 text-sm tracking-[.3em] transition-all uppercase rounded"
+        >
+          啟動戰略演算
+        </button>
 
-/* 宮位卡 */
-.palace {
-  border: 1px solid #333;
-  padding: 8px;
-  background: rgba(15, 15, 15, 0.95);
-  position: relative;
-  min-height: 112px;
-  display: flex;
-  flex-direction: column;
-  transition: 0.25s;
-  z-index: 10;
-}
-.palace:hover { transform: translateY(-1px); border-color: #555; }
-.is-nominal { border: 2px solid var(--gold) !important; }
-.is-selected { outline: 2px solid rgba(212,175,55,0.75); outline-offset: 2px; }
+        <p class="text-[11px] text-zinc-500 mt-3 leading-relaxed">
+          生成結果後，你可以點 12 宮位查看「小白白話 + 行動建議」，並可一鍵匯出 CSV。
+        </p>
+      </section>
 
-/* 中宮 */
-.center-hole {
-  grid-area: 2 / 2 / 4 / 4;
-  background: radial-gradient(circle, #1a1a1a 0%, #050505 100%);
-  border: 1px solid #222;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 5;
-}
+      <!-- RESULT -->
+      <section id="result-section" class="hidden max-w-6xl mx-auto">
+        <!-- Sticky Quick Nav -->
+        <div id="quick-nav" class="quick-nav sticky z-[999] rounded-lg border border-zinc-800 bg-black/80 backdrop-blur mb-5">
+          <div class="px-3 pt-3 pb-2 text-[12px] text-zinc-300 leading-relaxed md:hidden">
+            新手導覽：先看「一分鐘摘要」抓全局 → 點命盤 12 宮看細節 → 再看年度與流月任務。
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-2 p-2">
+            <button type="button" class="btn-tab" onclick="scrollToSection('sec-chart')">命盤檢視</button>
+            <button type="button" class="btn-tab" onclick="scrollToSection('sec-profile')">命格一分鐘摘要</button>
+            <button type="button" class="btn-tab" onclick="scrollToSection('sec-annual')">年度核心戰略</button>
+            <button type="button" class="btn-tab" onclick="scrollToSection('sec-monthly')">2026 流月建議</button>
+            <button type="button" class="btn-tab btn-tab-secondary" onclick="exportCSV()">匯出 CSV ↗</button>
+          </div>
+        </div>
 
-/* 星曜樣式 */
-.star-main {
-  color: var(--gold);
-  font-weight: 900;
-  font-size: 1.05rem;
-  writing-mode: vertical-rl;
-  line-height: 1;
-  margin: 0 1px;
-}
-.star-minor {
-  color: #888;
-  font-size: 0.75rem;
-  writing-mode: vertical-rl;
-  margin-right: 2px;
-}
+        <!-- Section: Chart + Palace Detail -->
+        <section id="sec-chart" class="grid xl:grid-cols-3 gap-6">
+          <div class="xl:col-span-2">
+            <div class="card">
+              <div class="flex items-start justify-between gap-4 mb-3">
+                <div>
+                  <div class="text-sm md:text-base font-black text-zinc-100">命盤檢視</div>
+                  <div class="text-[12px] text-zinc-400 mt-1">
+                    提醒：<span class="text-zinc-200 font-bold">點選不同宮位可看情報</span>（手機會用底部抽屜彈出解析）
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div id="bureau-text" class="text-[#D4AF37] font-black text-2xl md:text-3xl">--局</div>
+                  <div id="destiny-text" class="text-zinc-500 text-[11px] mt-1 font-mono">Analyzing...</div>
+                </div>
+              </div>
 
-.hua-tag {
-  font-size: 0.6rem;
-  padding: 1px 2px;
-  border-radius: 2px;
-  color: #fff;
-  text-align: center;
-  writing-mode: horizontal-tb;
-  margin-top: 4px;
-}
-.hua-birth { background: var(--ukg-red); }
-.hua-2026 { background: #1e40af; }
+              <div class="chart-grid" id="map-root">
+                <div class="center-hole text-center">
+                  <div class="center-badge">2026 丙午流年｜四化疊加模式</div>
+                  <div class="center-sub">提示：祿/權/科 = 金色微光｜忌 = 紅色警示｜空宮 = 借對宮 🔗</div>
+                </div>
+                <svg id="svg-overlay"></svg>
+              </div>
+            </div>
+          </div>
 
-.palace-label { position: absolute; top: 5px; right: 5px; font-size: 0.85rem; font-weight: 900; color: #555; }
-.meta-label { position: absolute; bottom: 5px; left: 5px; font-size: 0.7rem; color: #333; }
-.age-label { position: absolute; bottom: 5px; right: 5px; font-size: 0.65rem; color: #444; }
+          <div class="xl:col-span-1">
+            <div class="card">
+              <div class="flex items-center justify-between gap-3 mb-2">
+                <div>
+                  <div class="text-sm md:text-base font-black text-zinc-100">宮位情報</div>
+                  <div class="text-[12px] text-zinc-400 mt-1">點選任一宮位查看（桌機右側更新／手機底部抽屜）</div>
+                </div>
+                <div class="flex gap-2">
+                  <button type="button" id="btn-recalc" onclick="deployTacticalMap()" class="btn-mini hidden">重新演算</button>
+                  <button type="button" id="btn-reset" onclick="resetToInput()" class="btn-mini hidden">重設</button>
+                </div>
+              </div>
 
-#svg-overlay { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 20; width:100%; height:100%; }
+              <div id="palace-detail" class="text-zinc-500 text-[12px] leading-relaxed">
+                尚未選擇宮位。
+              </div>
+            </div>
+          </div>
+        </section>
 
-/* 右側卡片 */
-.strategy-card { background: rgba(20,20,20,0.8); border-left: 4px solid var(--gold); padding: 16px; }
-.quest-item { background: #111; border-left: 3px solid var(--ukg-red); padding: 10px; margin-bottom: 10px; font-size: 0.85rem; }
+        <!-- Section: Profile Summary -->
+        <section id="sec-profile" class="mt-6">
+          <div class="card">
+            <div class="text-sm md:text-base font-black text-zinc-100 mb-2">命格一分鐘摘要（人生/性格）</div>
+            <div id="profile-summary" class="text-[13px] md:text-[14px] text-zinc-300 leading-relaxed">
+              請先啟動演算。
+            </div>
+          </div>
+        </section>
 
-input, select {
-  background: #000 !important;
-  border: 1px solid #333 !important;
-  color: white !important;
-  font-size: 0.95rem;
-  padding: 10px;
-}
+        <!-- Section: Annual -->
+        <section id="sec-annual" class="mt-6">
+          <div class="card">
+            <div class="text-sm md:text-base font-black text-zinc-100 mb-2">年度核心戰略建議</div>
+            <p id="aphorism-text" class="text-[13px] md:text-[14px] text-zinc-300 leading-relaxed"></p>
 
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--ukg-red); border-radius: 10px; }
+            <!-- CTA 1: Under annual aphorism -->
+            <div class="mt-5 p-4 border border-zinc-800 rounded-lg bg-zinc-900/40">
+              <div class="text-zinc-200 font-black mb-2">戰略干預點：需要人腦介入時</div>
+              <div class="text-[12px] text-zinc-400 leading-relaxed">
+                數位演算能告訴你風險在哪，但只有人類智慧能告訴你如何贏過這個風險。若您面臨的是涉及人生規劃、核心職涯或企業規劃的關鍵決策，建議啟動 1 對 1 深度諮詢。
+              </div>
+              <a
+                class="cta-btn mt-3 inline-flex"
+                href="https://forms.gle/Vvs6U12TeMYtab8A6"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                申請 1 對 1 深度諮詢（NT$3600） ↗
+              </a>
+              <div class="text-[11px] text-zinc-500 mt-2 leading-relaxed">
+                ＊本項諮詢由李伯彥老師親自進行，旨在將數位數據轉化為可執行之商業決策。
+              </div>
+            </div>
+          </div>
+        </section>
 
-/* 手機字體稍微放大、宮位卡縮一點 */
-@media (max-width: 640px) {
-  .palace { min-height: 96px; padding: 6px; }
-  .star-main { font-size: 0.95rem; }
-  .palace-label { font-size: 0.82rem; }
-}
+        <!-- Section: Monthly -->
+        <section id="sec-monthly" class="mt-6">
+          <div class="card">
+            <div class="flex items-center justify-between gap-4 mb-3">
+              <div>
+                <div class="text-sm md:text-base font-black text-zinc-100">2026 流月戰略任務副本</div>
+                <div class="text-[12px] text-zinc-400 mt-1">
+                  點月份任務可定位命盤格子（閃兩下），幫你建立「時間 ↔ 空間」的直覺。
+                </div>
+              </div>
+              <button type="button" onclick="scrollToSection('sec-chart')" class="btn-mini">回到命盤</button>
+            </div>
 
+            <div class="max-h-[420px] overflow-y-auto pr-2 custom-scrollbar" id="quest-list"></div>
+
+            <!-- CTA 2: delayed reveal -->
+            <div id="cta-monthly" class="cta-hidden mt-5 p-4 border border-zinc-800 rounded-lg bg-zinc-900/40">
+              <div class="text-zinc-200 font-black mb-2">將戰略地圖轉化為個人執行清單</div>
+              <div class="text-[12px] text-zinc-400 leading-relaxed">
+                看完 12 個月任務後，如果你覺得資訊量太大、難以收斂成具體行動，我們可以把你的命盤與年度攻防，整理成「你做得到」的週/月行動清單。
+              </div>
+              <a
+                class="cta-btn mt-3 inline-flex"
+                href="https://forms.gle/Vvs6U12TeMYtab8A6"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                申請 1 對 1 深度諮詢（NT$3600） ↗
+              </a>
+              <div class="text-[11px] text-zinc-500 mt-2 leading-relaxed">
+                ＊本項諮詢由李伯彥老師親自進行，旨在將數位數據轉化為可執行之商業決策。
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <!-- Mobile Bottom Sheet -->
+    <div id="sheet-root" class="hidden fixed inset-0 z-[2000]">
+      <div id="sheet-backdrop" class="absolute inset-0 bg-black/60"></div>
+
+      <div
+        id="sheet-panel"
+        class="absolute left-0 right-0 bottom-0 bg-black border border-zinc-800 rounded-t-2xl p-4 translate-y-full transition-transform duration-200"
+        style="max-height: 70vh;"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-zinc-200 font-black" id="sheet-title">宮位解析</div>
+          <button id="sheet-close" type="button" class="btn-mini">關閉</button>
+        </div>
+        <div class="mt-2 h-[2px] w-12 bg-zinc-700 rounded mx-auto opacity-70"></div>
+
+        <div id="sheet-body" class="mt-3 overflow-y-auto custom-scrollbar pr-1" style="max-height: 58vh;"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
